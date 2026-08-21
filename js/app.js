@@ -1625,6 +1625,30 @@ class SafetyObserver {
 }
 
 // ============================================================
+// CERRAR SESIÓN
+// ============================================================
+
+async cerrarSesion() {
+    if (!confirm('¿Estás seguro de que quieres cerrar sesión?')) {
+        return;
+    }
+    
+    try {
+        await supabaseClient.auth.signOut();
+        this.usuarioActual = null;
+        this.showToast('✅ Sesión cerrada exitosamente');
+        
+        // Recargar la página para mostrar el login
+        setTimeout(() => {
+            location.reload();
+        }, 500);
+    } catch (error) {
+        console.error('Error cerrando sesión:', error);
+        this.showToast('❌ Error al cerrar sesión: ' + error.message);
+    }
+}
+
+// ============================================================
 // INICIALIZAR LA APLICACIÓN
 // ============================================================
 const app = new SafetyObserver();
