@@ -912,7 +912,7 @@ class SafetyObserver {
     getPersonaLabel(p) { return {mecanico:'Mecánico',tubero:'Tubero',electrico:'Eléctrico',otros:'Otros'}[p]||p; }
 
     // ============================================================
-    // GRÁFICAS
+    // GRÁFICAS - TODAS LAS FUNCIONES EXISTENTES
     // ============================================================
 
     createTipoChart(obs) {
