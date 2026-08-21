@@ -1,8 +1,8 @@
 // ============================================================
 // CONFIGURACIÓN DE SUPABASE - ACTUALIZA ESTOS VALORES
 // ============================================================
-const SUPABASE_URL = 'https://nbpbwqktpzazodgcmzdf.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5icGJ3cWt0cHphem9kZ2NtemRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNzQwODcsImV4cCI6MjEwMjY1MDA4N30.yetiKSvrGryh8rSdDgqfmBHQjCZUFcQBC3n9uV0fvXI';
+const SUPABASE_URL = 'https://gmaiqpvjlpvygeexsavb.supabase.co';
+const SUPABASE_ANON_KEY = 'TU_CLAVE_ANON_AQUI';
 
 // Inicializar Supabase
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -18,6 +18,7 @@ class SafetyObserver {
         this.buenasPracticasChart = null;
         this.supervisorRiesgosChart = null;
         this.supervisorBuenasChart = null;
+        this.paretoChart = null;
         this.supervisores = [];
         this.usuarioActual = null;
         this.init();
@@ -57,6 +58,7 @@ class SafetyObserver {
             
             this.usuarioActual = user;
             console.log('✅ Usuario autenticado:', user.email);
+            console.log('🆔 User ID:', user.id);
             return true;
         } catch (error) {
             console.error('Error verificando autenticación:', error);
@@ -159,6 +161,7 @@ class SafetyObserver {
 
             this.usuarioActual = data.user;
             console.log('✅ Usuario autenticado:', data.user.email);
+            console.log('🆔 User ID:', data.user.id);
             
             const modal = document.getElementById('login-modal');
             if (modal) modal.remove();
@@ -221,12 +224,14 @@ class SafetyObserver {
             }
 
             console.log('✅ Usuario registrado:', data.user.email);
+            console.log('🆔 User ID:', data.user.id);
 
+            // Guardar en la tabla supervisores con UUID
             try {
                 const { error: insertError } = await supabaseClient
                     .from('supervisores')
                     .insert({
-                        id: data.user.id,
+                        id: data.user.id,  // UUID de Supabase Auth
                         nombre: nombre,
                         apellido_paterno: apellidoPaterno,
                         apellido_materno: apellidoMaterno,
@@ -373,6 +378,7 @@ class SafetyObserver {
             setTimeout(() => {
                 this.generarHeatmap();
                 this.generarGraficaBuenasPracticas();
+                this.generarDiagramaPareto();
             }, 300);
         }
     }
@@ -506,7 +512,7 @@ class SafetyObserver {
     }
 
     // ============================================================
-    // GUARDAR OBSERVACIÓN EN SUPABASE - CON DOS SUPERVISORES
+    // GUARDAR OBSERVACIÓN EN SUPABASE
     // ============================================================
     
     async saveObservation() {
@@ -525,16 +531,14 @@ class SafetyObserver {
             `${s.apellido_paterno} ${s.apellido_materno} ${s.nombre}` === document.getElementById('supervisor-select').value
         );
 
-        // Buscar el supervisor que REGISTRA (el usuario con sesión activa)
-        const supervisorRegistra = this.supervisores.find(s => 
-            s.id === this.usuarioActual.id
-        );
+        // El supervisor que REGISTRA es el usuario actual (UUID)
+        const supervisorRegistraId = this.usuarioActual.id;
 
         const obs = {
-            // ID del supervisor que REGISTRA (el que inició sesión)
-            supervisor_registra_id: supervisorRegistra?.id || this.usuarioActual.id,
+            // ID del supervisor que REGISTRA (el que inició sesión) - UUID
+            supervisor_registra_id: supervisorRegistraId,
             
-            // ID del supervisor EVALUADO (el seleccionado en el formulario)
+            // ID del supervisor EVALUADO (el seleccionado en el formulario) - UUID
             supervisor_evaluado_id: supervisorEvaluado?.id || null,
             
             // Datos de la observación
@@ -548,6 +552,8 @@ class SafetyObserver {
             fecha: now.toISOString()
         };
 
+        console.log('📤 Enviando observación:', obs);
+
         try {
             this.showToast('⏳ Guardando observación...');
             
@@ -556,7 +562,12 @@ class SafetyObserver {
                 .insert(obs)
                 .select();
 
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Error de Supabase:', error);
+                throw error;
+            }
+
+            console.log('✅ Observación guardada:', data);
 
             this.showToast('✅ Observación guardada en la nube');
             this.resetForm();
@@ -567,10 +578,11 @@ class SafetyObserver {
             setTimeout(() => {
                 this.generarHeatmap();
                 this.generarGraficaBuenasPracticas();
+                this.generarDiagramaPareto();
             }, 300);
             
         } catch (error) {
-            console.error('Error guardando observación:', error);
+            console.error('❌ Error guardando observación:', error);
             this.showToast('❌ Error al guardar: ' + error.message);
         }
     }
@@ -792,11 +804,20 @@ class SafetyObserver {
                 return;
             }
             
+            // Generar UUID para el supervisor (ya que no tiene cuenta de auth)
+            const uuid = crypto.randomUUID ? crypto.randomUUID() : 
+                'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            
             const emailTemp = `${apellidoPaterno.toLowerCase()}.${nombre.toLowerCase()}@supervisor.local`;
             
             const { data, error } = await supabaseClient
                 .from('supervisores')
                 .insert({
+                    id: uuid,
                     apellido_paterno: apellidoPaterno,
                     apellido_materno: apellidoMaterno,
                     nombre: nombre,
@@ -883,6 +904,7 @@ class SafetyObserver {
             this.createSupervisorRiesgosChart(obs);
             this.createSupervisorBuenasChart(obs);
             this.generarGraficaBuenasPracticas();
+            this.generarDiagramaPareto();
             
         } catch (error) {
             console.error('Error cargando estadísticas:', error);
@@ -1023,7 +1045,6 @@ class SafetyObserver {
         const supervisores = {};
         
         riesgos.forEach(o => {
-            // Usar el nombre del supervisor EVALUADO para estas gráficas
             const nombre = o.evaluado_nombre || 'No especificado';
             supervisores[nombre] = (supervisores[nombre] || 0) + 1;
         });
@@ -1119,7 +1140,6 @@ class SafetyObserver {
         const supervisores = {};
         
         buenas.forEach(o => {
-            // Usar el nombre del supervisor EVALUADO para estas gráficas
             const nombre = o.evaluado_nombre || 'No especificado';
             supervisores[nombre] = (supervisores[nombre] || 0) + 1;
         });
@@ -1270,6 +1290,220 @@ class SafetyObserver {
             })
             .catch(error => {
                 console.error('Error en gráfica de buenas prácticas:', error);
+            });
+    }
+
+    // ============================================================
+    // DIAGRAMA DE PARETO
+    // ============================================================
+
+    generarDiagramaPareto() {
+        console.log('🔄 Generando diagrama de Pareto...');
+        
+        const container = document.getElementById('pareto-content');
+        const resumenContainer = document.getElementById('pareto-resumen');
+        const insightContainer = document.getElementById('pareto-insight');
+        
+        if (!container) { console.log('❌ Contenedor de Pareto no encontrado'); return; }
+
+        supabaseClient
+            .from('observaciones')
+            .select('*')
+            .then(({ data: observaciones, error }) => {
+                if (error) throw error;
+
+                const observacionesRiesgo = (observaciones || []).filter(o => o.tipo !== 'buena-practica');
+
+                if (!observacionesRiesgo || observacionesRiesgo.length === 0) {
+                    container.innerHTML = `<div class="heatmap-empty"><div style="font-size:48px;margin-bottom:15px;">📭</div><h3>No hay datos disponibles</h3><p>Registra observaciones para comenzar a ver el diagrama de Pareto</p></div>`;
+                    if (resumenContainer) resumenContainer.style.display = 'none';
+                    return;
+                }
+
+                const tipos = {};
+                observacionesRiesgo.forEach(o => {
+                    const tipo = this.getTipoLabel(o.tipo);
+                    tipos[tipo] = (tipos[tipo] || 0) + 1;
+                });
+
+                const ordenados = Object.entries(tipos).sort((a, b) => b[1] - a[1]);
+                const labels = ordenados.map(item => item[0]);
+                const valores = ordenados.map(item => item[1]);
+                const total = valores.reduce((a, b) => a + b, 0);
+
+                let acumulado = 0;
+                const acumulados = valores.map(valor => {
+                    acumulado += valor;
+                    return (acumulado / total) * 100;
+                });
+
+                const canvasId = 'chart-pareto';
+                let canvas = document.getElementById(canvasId);
+                if (!canvas) {
+                    canvas = document.createElement('canvas');
+                    canvas.id = canvasId;
+                    container.innerHTML = '';
+                    container.appendChild(canvas);
+                }
+
+                const ctx = canvas.getContext('2d');
+                
+                if (this.paretoChart) {
+                    this.paretoChart.destroy();
+                }
+
+                this.paretoChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Frecuencia',
+                                data: valores,
+                                backgroundColor: [
+                                    '#c62828', '#d32f2f', '#e53935', '#ef5350', 
+                                    '#e57373', '#ef9a9a', '#ffcdd2'
+                                ],
+                                borderRadius: 6,
+                                borderColor: '#b71c1c',
+                                borderWidth: 1,
+                                order: 1,
+                                yAxisID: 'y',
+                            },
+                            {
+                                label: 'Porcentaje Acumulado',
+                                data: acumulados,
+                                type: 'line',
+                                borderColor: '#1a237e',
+                                backgroundColor: 'rgba(26, 35, 126, 0.1)',
+                                borderWidth: 3,
+                                pointRadius: 6,
+                                pointBackgroundColor: '#1a237e',
+                                pointBorderColor: 'white',
+                                pointBorderWidth: 2,
+                                tension: 0.3,
+                                fill: true,
+                                order: 0,
+                                yAxisID: 'y1',
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Total: ${total} observaciones de riesgo`,
+                                font: { size: 14 },
+                                color: '#1a237e'
+                            },
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: { size: 12 },
+                                    padding: 15
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    afterBody: function(context) {
+                                        const index = context[0].dataIndex;
+                                        const valor = valores[index];
+                                        const porcentaje = ((valor / total) * 100).toFixed(1);
+                                        const acumulado = acumulados[index].toFixed(1);
+                                        return [
+                                            `Cantidad: ${valor} observaciones`,
+                                            `Porcentaje: ${porcentaje}% del total`,
+                                            `Acumulado: ${acumulado}%`
+                                        ];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Número de Observaciones',
+                                    font: { size: 12 }
+                                },
+                                ticks: { stepSize: 1 }
+                            },
+                            y1: {
+                                beginAtZero: true,
+                                position: 'right',
+                                max: 100,
+                                title: {
+                                    display: true,
+                                    text: 'Porcentaje Acumulado (%)',
+                                    font: { size: 12 }
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    font: { size: 11 }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                if (resumenContainer && insightContainer) {
+                    let acumulado80 = 0;
+                    let tipos80 = 0;
+                    for (let i = 0; i < acumulados.length; i++) {
+                        if (acumulados[i] <= 80) {
+                            tipos80++;
+                            acumulado80 = acumulados[i];
+                        }
+                    }
+                    if (tipos80 === 0 && acumulados.length > 0) {
+                        tipos80 = 1;
+                        acumulado80 = acumulados[0];
+                    }
+
+                    const primerTipo = labels[0];
+                    const primerValor = valores[0];
+                    const porcentajePrimero = ((primerValor / total) * 100).toFixed(1);
+
+                    insightContainer.innerHTML = `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                            <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #c62828;">
+                                <div style="font-weight: 700; font-size: 16px; color: #c62828;">${primerTipo}</div>
+                                <div style="font-size: 13px; color: #37474f;">Es el tipo más frecuente con <strong>${primerValor}</strong> observaciones (${porcentajePrimero}%)</div>
+                            </div>
+                            <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #1a237e;">
+                                <div style="font-weight: 700; font-size: 16px; color: #1a237e;">${tipos80} tipos</div>
+                                <div style="font-size: 13px; color: #37474f;">Representan el <strong>${acumulado80.toFixed(1)}%</strong> del total (${total} observaciones)</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 13px; color: #546e7a; background: white; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                            💡 <strong>Recomendación:</strong> Enfoca las acciones correctivas en el <strong>${tipos80}</strong> tipo(s) que representan el 80% de las observaciones para maximizar el impacto.
+                        </div>
+                    `;
+                    resumenContainer.style.display = 'block';
+                }
+
+                console.log('✅ Diagrama de Pareto generado correctamente');
+            })
+            .catch(error => {
+                console.error('Error generando diagrama de Pareto:', error);
+                container.innerHTML = `<div class="heatmap-empty"><div style="font-size:48px;margin-bottom:15px;">❌</div><h3>Error al cargar datos</h3><p>${error.message}</p></div>`;
             });
     }
 
