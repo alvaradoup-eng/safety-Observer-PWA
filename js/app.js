@@ -1,8 +1,8 @@
 // ============================================================
 // CONFIGURACIÓN DE SUPABASE - ACTUALIZA ESTOS VALORES
 // ============================================================
-const SUPABASE_URL = 'https://nbpbwqktpzazodgcmzdf.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5icGJ3cWt0cHphem9kZ2NtemRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNzQwODcsImV4cCI6MjEwMjY1MDA4N30.yetiKSvrGryh8rSdDgqfmBHQjCZUFcQBC3n9uV0fvXI';  // Reemplaza con tu clave
+const SUPABASE_URL = 'https://gmaiqpvjlpvygeexsavb.supabase.co';
+const SUPABASE_ANON_KEY = 'TU_CLAVE_ANON_AQUI';  // Reemplaza con tu clave
 
 // Inicializar Supabase
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -508,7 +508,7 @@ class SafetyObserver {
     }
 
     // ============================================================
-    // GUARDAR OBSERVACIÓN - CON DELETE obs.id
+    // GUARDAR OBSERVACIÓN EN SUPABASE
     // ============================================================
     
     async saveObservation() {
@@ -530,7 +530,7 @@ class SafetyObserver {
         // El supervisor que REGISTRA es el usuario actual (UUID)
         const supervisorRegistraId = this.usuarioActual.id;
 
-        // Crear el objeto de observación
+        // Crear el objeto de observación - SIN el campo id
         const obs = {
             supervisor_registra_id: supervisorRegistraId,
             supervisor_evaluado_id: supervisorEvaluado?.id || null,
@@ -544,10 +544,10 @@ class SafetyObserver {
             fecha: now.toISOString()
         };
 
-        // 🔥 ELIMINAR EL CAMPO ID PARA QUE SUPABASE LO GENERE AUTOMÁTICAMENTE
+        // Asegurarse de que NO haya un campo id
         delete obs.id;
         
-        console.log('📤 Enviando observación (sin ID - Supabase lo generará):', obs);
+        console.log('📤 Enviando observación:', obs);
 
         try {
             this.showToast('⏳ Guardando observación...');
@@ -913,7 +913,7 @@ class SafetyObserver {
     getPersonaLabel(p) { return {mecanico:'Mecánico',tubero:'Tubero',electrico:'Eléctrico',otros:'Otros'}[p]||p; }
 
     // ============================================================
-    // GRÁFICAS - TODAS LAS FUNCIONES COMPLETAS
+    // GRÁFICAS
     // ============================================================
 
     createTipoChart(obs) {
