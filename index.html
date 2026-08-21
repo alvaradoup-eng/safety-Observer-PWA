@@ -81,7 +81,6 @@
             position: relative;
         }
 
-        /* Efecto LED RGB para celdas con riesgos críticos */
         .heatmap-table td.has-critico {
             animation: ledRainbow 3s ease-in-out infinite;
             border-width: 3px !important;
@@ -114,7 +113,6 @@
             }
         }
 
-        /* Texto de crítico en blanco */
         .heatmap-table td .critico-text {
             color: white !important;
             font-weight: 700;
@@ -167,7 +165,6 @@
             border-top: 2px solid #e0e0e0;
         }
 
-        /* Animación para el indicador LED en la leyenda */
         .led-indicator {
             display: inline-block;
             width: 25px;
@@ -178,7 +175,6 @@
             background: transparent !important;
         }
 
-        /* Estilos para las gráficas de módulos */
         .modulo-charts-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -205,7 +201,6 @@
             height: 250px;
         }
 
-        /* Estilos para las gráficas de supervisores */
         .supervisor-charts-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -232,7 +227,6 @@
             height: 250px;
         }
 
-        /* Estilos para el selector de supervisor */
         .supervisor-select-container {
             display: flex;
             gap: 10px;
@@ -269,7 +263,6 @@
             box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
         }
 
-        /* Modal para agregar supervisor */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -386,6 +379,62 @@
             background: #bdbdbd;
         }
 
+        /* Estilos para el header con botón de cerrar sesión */
+        .app-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: #1a237e;
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .app-header h1 {
+            font-size: 20px;
+            margin: 0;
+            color: white;
+        }
+
+        .btn-logout {
+            padding: 6px 14px;
+            background: #d32f2f;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .btn-logout:hover {
+            background: #b71c1c;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.4);
+        }
+
+        .main-nav {
+            width: 100%;
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+
         @media (max-width: 768px) {
             .modulo-charts-container {
                 grid-template-columns: 1fr;
@@ -404,32 +453,39 @@
                 width: 100%;
                 text-align: center;
             }
+            .app-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+            .header-left, .header-right {
+                justify-content: center;
+            }
+            .main-nav {
+                flex-wrap: wrap;
+            }
+            .btn-logout {
+                font-size: 12px;
+                padding: 5px 12px;
+            }
         }
     </style>
 </head>
 <body>
     <div id="app">
         <header class="app-header">
-            <h1>Safety Observer</h1>
+            <div class="header-left">
+                <h1>🦺 Safety Observer</h1>
+            </div>
+            <div class="header-right">
+                <button id="btn-cerrar-sesion" class="btn-logout" onclick="app.cerrarSesion()">🚪 Cerrar Sesión</button>
+            </div>
             <nav class="main-nav">
                 <button class="nav-btn active" data-view="registro">Registro</button>
                 <button class="nav-btn" data-view="observaciones">Observaciones</button>
                 <button class="nav-btn" data-view="estadisticas">Estadísticas</button>
             </nav>
         </header>
-        <header class="app-header">
-    <div class="header-left">
-        <h1>Safety Observer</h1>
-    </div>
-    <div class="header-right">
-        <button id="btn-cerrar-sesion" class="btn-logout" onclick="app.cerrarSesion()">🚪 Cerrar Sesión</button>
-    </div>
-    <nav class="main-nav">
-        <button class="nav-btn active" data-view="registro">Registro</button>
-        <button class="nav-btn" data-view="observaciones">Observaciones</button>
-        <button class="nav-btn" data-view="estadisticas">Estadísticas</button>
-    </nav>
-</header>
 
         <main id="main-content">
             <!-- Vista de Registro -->
@@ -437,7 +493,6 @@
                 <form id="form-observacion" class="observation-form" novalidate>
                     <h2>Nueva Observación</h2>
 
-                    <!-- Área de Trabajo -->
                     <div class="form-group" id="grupo-area">
                         <label class="form-label-title">Área de Trabajo</label>
                         <div class="radio-group" id="radio-area">
@@ -450,7 +505,6 @@
                         <span class="error-message" id="error-area"></span>
                     </div>
 
-                    <!-- Selector de módulo (Stator/Rotor) -->
                     <div class="form-group" id="grupo-modulo" style="display: none;">
                         <label for="modulo">Módulo</label>
                         <select id="modulo">
@@ -464,7 +518,6 @@
                         <span class="error-message" id="error-modulo"></span>
                     </div>
 
-                    <!-- Tipo de Observación -->
                     <div class="form-group" id="grupo-tipo">
                         <label class="form-label-title">Tipo de Observación</label>
                         <div class="radio-group" id="radio-tipo">
@@ -479,7 +532,6 @@
                         <span class="error-message" id="error-tipo"></span>
                     </div>
 
-                    <!-- Nivel de Riesgo -->
                     <div class="form-group" id="grupo-riesgo">
                         <label class="form-label-title">Nivel de Riesgo</label>
                         <div class="radio-group" id="radio-riesgo">
@@ -504,7 +556,6 @@
                         <span class="error-message" id="error-persona"></span>
                     </div>
 
-                    <!-- Nombre del Supervisor con selector -->
                     <div class="form-group" id="grupo-supervisor">
                         <label for="supervisor-select">Nombre del supervisor</label>
                         <div class="supervisor-select-container">
@@ -580,7 +631,6 @@
                 <div class="chart-container"><canvas id="chart-tipos"></canvas></div>
                 <div class="chart-container"><canvas id="chart-areas"></canvas></div>
                 
-                <!-- Gráficas de Módulos - Stator y Rotor -->
                 <div class="modulo-charts-container">
                     <div class="modulo-chart-box">
                         <h4>🔵 Stator - Observaciones por Módulo</h4>
@@ -598,7 +648,6 @@
 
                 <div class="chart-container"><canvas id="chart-personas"></canvas></div>
 
-                <!-- Gráficas de Supervisores - Riesgos y Buenas Prácticas -->
                 <div class="supervisor-charts-container">
                     <div class="supervisor-chart-box">
                         <h4>🚨 Observaciones de Riesgo por Supervisor</h4>
@@ -614,7 +663,6 @@
                     </div>
                 </div>
 
-                <!-- Gráfica de Buenas Prácticas por Área -->
                 <div class="heatmap-section">
                     <div class="heatmap-title">
                         ⭐ Buenas Prácticas por Área
@@ -629,7 +677,6 @@
 
                 <hr class="heatmap-divider">
 
-                <!-- Mapa de Calor 1: Todas las Observaciones -->
                 <div class="heatmap-section">
                     <div class="heatmap-title">
                         📊 Mapa de Calor - Observaciones por Área y Tipo
@@ -645,7 +692,6 @@
         </main>
     </div>
 
-    <!-- Modal para agregar supervisor -->
     <div id="modal-supervisor" class="modal-overlay">
         <div class="modal-content">
             <h3>📝 Dar de alta supervisor</h3>
@@ -670,20 +716,9 @@
 
     <div id="toast" class="toast"></div>
 
-    <!-- ============================================================ -->
-    <!-- SCRIPTS - El orden es IMPORTANTE -->
-    <!-- ============================================================ -->
-    
-    <!-- 1. PRIMERO: Chart.js (para las gráficas) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- 2. SEGUNDO: Supabase (para la base de datos) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <!-- 3. TERCERO: db.js (base de datos local - si existe) -->
     <script src="js/db.js"></script>
-    
-    <!-- 4. CUARTO: app.js (tu aplicación principal) -->
     <script src="js/app.js"></script>
 </body>
 </html>
