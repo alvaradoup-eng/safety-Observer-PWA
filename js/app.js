@@ -225,7 +225,6 @@ class SafetyObserver {
 
             console.log('✅ Usuario registrado:', data.user.email);
 
-            // Insertar el usuario en la tabla supervisores
             try {
                 const { error: insertError } = await supabaseClient
                     .from('supervisores')
@@ -511,7 +510,7 @@ class SafetyObserver {
     }
 
     // ============================================================
-    // GUARDAR OBSERVACIÓN EN SUPABASE (SIN EL CAMPO ID)
+    // GUARDAR OBSERVACIÓN EN SUPABASE
     // ============================================================
     
     async saveObservation() {
@@ -533,7 +532,7 @@ class SafetyObserver {
         // El supervisor que REGISTRA es el usuario actual (UUID)
         const supervisorRegistraId = this.usuarioActual.id;
 
-        // Crear el objeto de observación - SIN incluir el campo 'id'
+        // Crear el objeto de observación
         const obs = {
             supervisor_registra_id: supervisorRegistraId,
             supervisor_evaluado_id: supervisorEvaluado?.id || null,
@@ -797,7 +796,6 @@ class SafetyObserver {
                 return;
             }
             
-            // Generar UUID para el supervisor
             const uuid = crypto.randomUUID ? crypto.randomUUID() : 
                 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
                     const r = Math.random() * 16 | 0;
