@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIGURACIÓN DE SUPABASE - ACTUALIZA ESTOS VALORES
 // ============================================================
-const SUPABASE_URL = 'https://gmaiqpvjlpvygeexsavb.supabase.co'; 
+const SUPABASE_URL = 'https://nbpbwqktpzazodgcmzdf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYWlxcHZqbHB2eWdlZXhzYXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MzM3MzIsImV4cCI6MjEwMjMwOTczMn0.iDhDw31RdgAlFs0G2zQ570r7Jh9sqyiey6-1W0kdgQw';  // Reemplaza con tu clave
 
 // Inicializar Supabase
@@ -223,6 +223,7 @@ class SafetyObserver {
 
             console.log('✅ Usuario registrado:', data.user.email);
 
+            // 🔥 REGISTRO AUTOMÁTICO EN LA TABLA SUPERVISORES
             try {
                 const { error: insertError } = await supabaseClient
                     .from('supervisores')
@@ -522,15 +523,12 @@ class SafetyObserver {
 
         const now = new Date();
         
-        // Buscar el supervisor EVALUADO (el seleccionado en el formulario)
         const supervisorEvaluado = this.supervisores.find(s => 
             `${s.apellido_paterno} ${s.apellido_materno} ${s.nombre}` === document.getElementById('supervisor-select').value
         );
 
-        // El supervisor que REGISTRA es el usuario actual (UUID)
         const supervisorRegistraId = this.usuarioActual.id;
 
-        // Crear el objeto de observación - SIN el campo id
         const obs = {
             supervisor_registra_id: supervisorRegistraId,
             supervisor_evaluado_id: supervisorEvaluado?.id || null,
@@ -544,7 +542,7 @@ class SafetyObserver {
             fecha: now.toISOString()
         };
 
-        // Asegurarse de que NO haya un campo id
+        // Eliminar cualquier campo id
         delete obs.id;
         
         console.log('📤 Enviando observación:', obs);
@@ -1028,6 +1026,10 @@ class SafetyObserver {
         }
     }
 
+    // ============================================================
+    // GRÁFICA DE SUPERVISORES - OBSERVACIONES DE RIESGO
+    // ============================================================
+    
     createSupervisorRiesgosChart(obs) {
         const riesgos = obs.filter(o => o.tipo !== 'buena-practica');
         const supervisores = {};
@@ -1119,6 +1121,10 @@ class SafetyObserver {
         });
     }
 
+    // ============================================================
+    // GRÁFICA DE SUPERVISORES - BUENAS PRÁCTICAS
+    // ============================================================
+    
     createSupervisorBuenasChart(obs) {
         const buenas = obs.filter(o => o.tipo === 'buena-practica');
         const supervisores = {};
@@ -1276,6 +1282,10 @@ class SafetyObserver {
                 console.error('Error en gráfica de buenas prácticas:', error);
             });
     }
+
+    // ============================================================
+    // DIAGRAMA DE PARETO
+    // ============================================================
 
     generarDiagramaPareto() {
         console.log('🔄 Generando diagrama de Pareto...');
@@ -1612,39 +1622,28 @@ class SafetyObserver {
             });
     }
 
+    // ============================================================
+    // CERRAR SESIÓN
+    // ============================================================
+    
     async cerrarSesion() {
+        if (!confirm('¿Estás seguro de que quieres cerrar sesión?')) {
+            return;
+        }
+        
         try {
             await supabaseClient.auth.signOut();
             this.usuarioActual = null;
-            this.showToast('✅ Sesión cerrada');
-            location.reload();
+            this.showToast('✅ Sesión cerrada exitosamente');
+            
+            // Recargar la página para mostrar el login
+            setTimeout(() => {
+                location.reload();
+            }, 500);
         } catch (error) {
             console.error('Error cerrando sesión:', error);
+            this.showToast('❌ Error al cerrar sesión: ' + error.message);
         }
-    }
-}
-
-// ============================================================
-// CERRAR SESIÓN
-// ============================================================
-
-async cerrarSesion() {
-    if (!confirm('¿Estás seguro de que quieres cerrar sesión?')) {
-        return;
-    }
-    
-    try {
-        await supabaseClient.auth.signOut();
-        this.usuarioActual = null;
-        this.showToast('✅ Sesión cerrada exitosamente');
-        
-        // Recargar la página para mostrar el login
-        setTimeout(() => {
-            location.reload();
-        }, 500);
-    } catch (error) {
-        console.error('Error cerrando sesión:', error);
-        this.showToast('❌ Error al cerrar sesión: ' + error.message);
     }
 }
 
