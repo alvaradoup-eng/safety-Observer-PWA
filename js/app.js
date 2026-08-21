@@ -1,8 +1,8 @@
 // ============================================================
 // CONFIGURACIÓN DE SUPABASE - ACTUALIZA ESTOS VALORES
 // ============================================================
-const SUPABASE_URL = 'https://nbpbwqktpzazodgcmzdf.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5icGJ3cWt0cHphem9kZ2NtemRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNzQwODcsImV4cCI6MjEwMjY1MDA4N30.yetiKSvrGryh8rSdDgqfmBHQjCZUFcQBC3n9uV0fvXI';  // Reemplaza con tu clave
+const SUPABASE_URL = 'https://gmaiqpvjlpvygeexsavb.supabase.co';
+const SUPABASE_ANON_KEY = 'TU_CLAVE_ANON_AQUI';  // Reemplaza con tu clave
 
 // Inicializar Supabase
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -225,6 +225,7 @@ class SafetyObserver {
 
             console.log('✅ Usuario registrado:', data.user.email);
 
+            // Insertar el usuario en la tabla supervisores
             try {
                 const { error: insertError } = await supabaseClient
                     .from('supervisores')
@@ -510,7 +511,7 @@ class SafetyObserver {
     }
 
     // ============================================================
-    // GUARDAR OBSERVACIÓN
+    // GUARDAR OBSERVACIÓN EN SUPABASE (CORREGIDO)
     // ============================================================
     
     async saveObservation() {
@@ -524,12 +525,15 @@ class SafetyObserver {
 
         const now = new Date();
         
+        // Buscar el supervisor EVALUADO (el seleccionado en el formulario)
         const supervisorEvaluado = this.supervisores.find(s => 
             `${s.apellido_paterno} ${s.apellido_materno} ${s.nombre}` === document.getElementById('supervisor-select').value
         );
 
+        // El supervisor que REGISTRA es el usuario actual (UUID)
         const supervisorRegistraId = this.usuarioActual.id;
 
+        // Crear el objeto de observación - SIN incluir el campo 'id'
         const obs = {
             supervisor_registra_id: supervisorRegistraId,
             supervisor_evaluado_id: supervisorEvaluado?.id || null,
@@ -543,6 +547,8 @@ class SafetyObserver {
             fecha: now.toISOString()
         };
 
+        console.log('📤 Enviando observación:', obs);
+
         try {
             this.showToast('⏳ Guardando observación...');
             
@@ -555,6 +561,8 @@ class SafetyObserver {
                 console.error('❌ Error de Supabase:', error);
                 throw error;
             }
+
+            console.log('✅ Observación guardada:', data);
 
             this.showToast('✅ Observación guardada en la nube');
             this.resetForm();
@@ -789,6 +797,7 @@ class SafetyObserver {
                 return;
             }
             
+            // Generar UUID para el supervisor
             const uuid = crypto.randomUUID ? crypto.randomUUID() : 
                 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
                     const r = Math.random() * 16 | 0;
