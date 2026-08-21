@@ -1,5 +1,5 @@
 // ============================================================
-// CONFIGURACIÓN DE SUPABASE
+// CONFIGURACIÓN DE SUPABASE - ACTUALIZA ESTOS VALORES
 // ============================================================
 const SUPABASE_URL = 'https://nbpbwqktpzazodgcmzdf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5icGJ3cWt0cHphem9kZ2NtemRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNzQwODcsImV4cCI6MjEwMjY1MDA4N30.yetiKSvrGryh8rSdDgqfmBHQjCZUFcQBC3n9uV0fvXI';  // Reemplaza con tu clave
@@ -508,7 +508,7 @@ class SafetyObserver {
     }
 
     // ============================================================
-    // GUARDAR OBSERVACIÓN - VERSIÓN CON delete obs.id
+    // GUARDAR OBSERVACIÓN - CON DELETE obs.id
     // ============================================================
     
     async saveObservation() {
@@ -544,10 +544,10 @@ class SafetyObserver {
             fecha: now.toISOString()
         };
 
-        // 🔥 IMPORTANTE: Eliminar cualquier campo 'id' que pudiera existir
+        // 🔥 ELIMINAR EL CAMPO ID PARA QUE SUPABASE LO GENERE AUTOMÁTICAMENTE
         delete obs.id;
         
-        console.log('📤 Enviando observación (sin ID):', obs);
+        console.log('📤 Enviando observación (sin ID - Supabase lo generará):', obs);
 
         try {
             this.showToast('⏳ Guardando observación...');
@@ -913,7 +913,7 @@ class SafetyObserver {
     getPersonaLabel(p) { return {mecanico:'Mecánico',tubero:'Tubero',electrico:'Eléctrico',otros:'Otros'}[p]||p; }
 
     // ============================================================
-    // GRÁFICAS
+    // GRÁFICAS - TODAS LAS FUNCIONES COMPLETAS
     // ============================================================
 
     createTipoChart(obs) {
@@ -1028,10 +1028,6 @@ class SafetyObserver {
         }
     }
 
-    // ============================================================
-    // GRÁFICA DE SUPERVISORES - OBSERVACIONES DE RIESGO
-    // ============================================================
-    
     createSupervisorRiesgosChart(obs) {
         const riesgos = obs.filter(o => o.tipo !== 'buena-practica');
         const supervisores = {};
@@ -1123,10 +1119,6 @@ class SafetyObserver {
         });
     }
 
-    // ============================================================
-    // GRÁFICA DE SUPERVISORES - BUENAS PRÁCTICAS
-    // ============================================================
-    
     createSupervisorBuenasChart(obs) {
         const buenas = obs.filter(o => o.tipo === 'buena-practica');
         const supervisores = {};
@@ -1284,10 +1276,6 @@ class SafetyObserver {
                 console.error('Error en gráfica de buenas prácticas:', error);
             });
     }
-
-    // ============================================================
-    // DIAGRAMA DE PARETO
-    // ============================================================
 
     generarDiagramaPareto() {
         console.log('🔄 Generando diagrama de Pareto...');
