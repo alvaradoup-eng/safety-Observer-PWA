@@ -2,7 +2,7 @@
 // CONFIGURACIÓN DE SUPABASE
 // ============================================================
 const SUPABASE_URL = 'https://gmaiqpvjlpvygeexsavb.supabase.co';
-const SUPABASE_ANON_KEY = 'TU_CLAVE_ANON_AQUI';  // Reemplaza con tu clave
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYWlxcHZqbHB2eWdlZXhzYXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MzM3MzIsImV4cCI6MjEwMjMwOTczMn0.iDhDw31RdgAlFs0G2zQ570r7Jh9sqyiey6-1W0kdgQw';  // Reemplaza con tu clave
 
 // Inicializar Supabase
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
