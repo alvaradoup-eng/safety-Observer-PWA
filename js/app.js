@@ -2,7 +2,7 @@
 // CONFIGURACIÓN DE SUPABASE
 // ============================================================
 const SUPABASE_URL = 'https://gmaiqpvjlpvygeexsavb.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYWlxcHZqbHB2eWdlZXhzYXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MzM3MzIsImV4cCI6MjEwMjMwOTczMn0.iDhDw31RdgAlFs0G2zQ570r7Jh9sqyiey6-1W0kdgQw';  // Reemplaza con tu clave
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYWlxcHZqbHB2eWdlZXhzYXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MzM3MzIsImV4cCI6MjEwMjMwOTczMn0.iDhDw31RdgAlFs0G2zQ570r7Jh9sqyiey6-1W0kdgQw';
 
 // Inicializar Supabase
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -56,7 +56,7 @@ class SafetyObserver {
                 return false;
             }
             this.usuarioActual = user;
-            console.log('✅ Usuario autenticado:', user.email);
+            console.log('✅ Usuario autenticado');
             return true;
         } catch (error) {
             console.error('Error verificando autenticación:', error);
@@ -75,8 +75,12 @@ class SafetyObserver {
                     </div>
                     <div id="login-form">
                         <div class="form-group">
-                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Email</label>
-                            <input type="email" id="login-email" placeholder="tu@email.com" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
+                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Nombre</label>
+                            <input type="text" id="login-nombre" placeholder="Tu nombre" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
+                        </div>
+                        <div class="form-group">
+                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Apellido Paterno</label>
+                            <input type="text" id="login-apellido" placeholder="Tu apellido paterno" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
                         </div>
                         <div class="form-group">
                             <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Contraseña</label>
@@ -101,11 +105,7 @@ class SafetyObserver {
                         </div>
                         <div class="form-group">
                             <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Apellido Materno</label>
-                            <input type="text" id="registro-apellido-materno" placeholder="Apellido materno" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
-                        </div>
-                        <div class="form-group">
-                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Email</label>
-                            <input type="email" id="registro-email" placeholder="tu@email.com" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
+                            <input type="text" id="registro-apellido-materno" placeholder="Apellido materno (opcional)" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
                         </div>
                         <div class="form-group">
                             <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Contraseña</label>
@@ -130,16 +130,39 @@ class SafetyObserver {
     }
 
     async iniciarSesion() {
-        const email = document.getElementById('login-email').value.trim();
+        const nombre = document.getElementById('login-nombre').value.trim();
+        const apellido = document.getElementById('login-apellido').value.trim();
         const password = document.getElementById('login-password').value;
         
-        if (!email || !password) {
+        if (!nombre || !apellido || !password) {
             this.mostrarMensajeError('⚠️ Completa todos los campos');
             return;
         }
 
         try {
-            console.log('🔐 Intentando iniciar sesión con:', email);
+            // Buscar el supervisor por nombre y apellido
+            const { data: supervisor, error: searchError } = await supabaseClient
+                .from('supervisores')
+                .select('*')
+                .eq('nombre', nombre)
+                .eq('apellido_paterno', apellido)
+                .maybeSingle();
+
+            if (searchError) {
+                console.error('❌ Error buscando supervisor:', searchError);
+                this.mostrarMensajeError('❌ Error al buscar el usuario');
+                return;
+            }
+
+            if (!supervisor) {
+                this.mostrarMensajeError('❌ Usuario no encontrado. Verifica tus datos.');
+                return;
+            }
+
+            // Email generado internamente (el usuario no lo ve)
+            const email = `${nombre}.${apellido}@safety.local`;
+            
+            console.log('🔐 Intentando iniciar sesión como:', nombre, apellido);
             
             const { data, error } = await supabaseClient.auth.signInWithPassword({
                 email: email,
@@ -148,7 +171,7 @@ class SafetyObserver {
 
             if (error) {
                 console.error('❌ Error de autenticación:', error);
-                this.mostrarMensajeError('❌ Error al iniciar sesión: ' + error.message);
+                this.mostrarMensajeError('❌ Contraseña incorrecta. Intenta nuevamente.');
                 return;
             }
 
@@ -158,12 +181,12 @@ class SafetyObserver {
             }
 
             this.usuarioActual = data.user;
-            console.log('✅ Usuario autenticado:', data.user.email);
+            console.log('✅ Usuario autenticado:', nombre, apellido);
             
             const modal = document.getElementById('login-modal');
             if (modal) modal.remove();
             
-            this.mostrarMensajeExito('✅ Bienvenido ' + data.user.email);
+            this.mostrarMensajeExito('✅ Bienvenido ' + nombre + ' ' + apellido);
             
             await this.cargarSupervisores();
             await this.loadObservations();
@@ -182,10 +205,9 @@ class SafetyObserver {
         const nombre = document.getElementById('registro-nombre').value.trim();
         const apellidoPaterno = document.getElementById('registro-apellido-paterno').value.trim();
         const apellidoMaterno = document.getElementById('registro-apellido-materno').value.trim();
-        const email = document.getElementById('registro-email').value.trim();
         const password = document.getElementById('registro-password').value;
 
-        if (!nombre || !apellidoPaterno || !email || !password) {
+        if (!nombre || !apellidoPaterno || !password) {
             this.mostrarMensajeError('⚠️ Completa todos los campos obligatorios');
             return;
         }
@@ -196,9 +218,12 @@ class SafetyObserver {
         }
 
         try {
-            console.log('📝 Registrando usuario:', email);
+            // Email generado internamente (el usuario no lo ve)
+            const email = `${nombre}.${apellidoPaterno}@safety.local`;
             
-            // Registrar en Supabase Auth (requiere email para autenticación)
+            console.log('📝 Registrando usuario:', nombre, apellidoPaterno);
+            
+            // Registrar en Supabase Auth (el usuario no ve el email)
             const { data, error } = await supabaseClient.auth.signUp({
                 email: email,
                 password: password,
@@ -206,7 +231,7 @@ class SafetyObserver {
                     data: {
                         nombre: nombre,
                         apellido_paterno: apellidoPaterno,
-                        apellido_materno: apellidoMaterno
+                        apellido_materno: apellidoMaterno || ''
                     }
                 }
             });
@@ -222,24 +247,41 @@ class SafetyObserver {
                 return;
             }
 
-            console.log('✅ Usuario registrado:', data.user.email);
+            console.log('✅ Usuario registrado:', nombre, apellidoPaterno);
 
-            // Guardar en supervisores SIN el campo email
+            // Guardar en supervisores
             try {
-                const { error: insertError } = await supabaseClient
+                const supervisorData = {
+                    nombre: nombre,
+                    apellido_paterno: apellidoPaterno,
+                    apellido_materno: apellidoMaterno || ''
+                };
+                
+                // Verificar si ya existe un supervisor con ese nombre y apellido
+                const { data: existente, error: checkError } = await supabaseClient
                     .from('supervisores')
-                    .insert({
-                        // id: NO se envía (se genera automáticamente con SERIAL)
-                        nombre: nombre,
-                        apellido_paterno: apellidoPaterno,
-                        apellido_materno: apellidoMaterno
-                    });
+                    .select('*')
+                    .eq('nombre', nombre)
+                    .eq('apellido_paterno', apellidoPaterno)
+                    .maybeSingle();
 
-                if (insertError) {
-                    console.error('❌ Error guardando supervisor:', insertError);
-                    this.mostrarMensajeExito('✅ Usuario registrado, pero hubo un problema al guardar los datos del supervisor');
+                if (checkError) {
+                    console.error('❌ Error verificando existencia:', checkError);
+                }
+
+                if (!existente) {
+                    const { error: insertError } = await supabaseClient
+                        .from('supervisores')
+                        .insert(supervisorData);
+
+                    if (insertError) {
+                        console.error('❌ Error guardando supervisor:', insertError);
+                        this.mostrarMensajeExito('✅ Usuario registrado, pero hubo un problema al guardar los datos del supervisor');
+                    } else {
+                        this.mostrarMensajeExito('✅ Usuario registrado exitosamente');
+                    }
                 } else {
-                    this.mostrarMensajeExito('✅ Usuario registrado exitosamente');
+                    this.mostrarMensajeExito('✅ Usuario ya existente. Inicia sesión.');
                 }
             } catch (insertError) {
                 console.error('❌ Error guardando supervisor:', insertError);
@@ -249,15 +291,13 @@ class SafetyObserver {
             document.getElementById('registro-nombre').value = '';
             document.getElementById('registro-apellido-paterno').value = '';
             document.getElementById('registro-apellido-materno').value = '';
-            document.getElementById('registro-email').value = '';
             document.getElementById('registro-password').value = '';
             
             this.mostrarLoginForm();
             
-            const emailField = document.getElementById('login-email');
-            if (emailField) {
-                emailField.value = email;
-            }
+            // Prellenar campos de login
+            document.getElementById('login-nombre').value = nombre;
+            document.getElementById('login-apellido').value = apellidoPaterno;
             
             this.mostrarMensajeExito('✅ Usuario registrado. Ahora inicia sesión.');
             
@@ -509,7 +549,7 @@ class SafetyObserver {
     }
 
     // ============================================================
-    // GUARDAR OBSERVACIÓN EN SUPABASE
+    // GUARDAR OBSERVACIÓN
     // ============================================================
     
     async saveObservation() {
@@ -523,24 +563,18 @@ class SafetyObserver {
 
         const now = new Date();
         
-        // Buscar el supervisor EVALUADO (el seleccionado en el formulario)
         const supervisorEvaluado = this.supervisores.find(s => 
             `${s.apellido_paterno} ${s.apellido_materno} ${s.nombre}` === document.getElementById('supervisor-select').value
         );
 
-        // Buscar el supervisor que REGISTRA (el usuario actual)
-        // Como no tenemos email en supervisores, buscamos por nombre y apellidos
         const nombreRegistra = this.usuarioActual.user_metadata?.nombre || '';
         const apellidoPaternoRegistra = this.usuarioActual.user_metadata?.apellido_paterno || '';
-        const apellidoMaternoRegistra = this.usuarioActual.user_metadata?.apellido_materno || '';
         
         const supervisorRegistra = this.supervisores.find(s => 
             s.nombre === nombreRegistra &&
-            s.apellido_paterno === apellidoPaternoRegistra &&
-            s.apellido_materno === apellidoMaternoRegistra
+            s.apellido_paterno === apellidoPaternoRegistra
         );
 
-        // Si no se encuentra, usar el primer supervisor (fallback)
         const registraId = supervisorRegistra?.id || (this.supervisores.length > 0 ? this.supervisores[0].id : null);
 
         const obs = {
@@ -556,7 +590,6 @@ class SafetyObserver {
             fecha: now.toISOString()
         };
 
-        // Eliminar cualquier campo id que pudiera existir
         delete obs.id;
         
         console.log('📤 Enviando observación:', obs);
@@ -720,7 +753,7 @@ class SafetyObserver {
         try {
             const { data, error } = await supabaseClient
                 .from('supervisores')
-                .select('*')  // Sin email
+                .select('*')
                 .order('apellido_paterno');
             
             if (error) throw error;
@@ -809,11 +842,9 @@ class SafetyObserver {
                 return;
             }
             
-            // Insertar supervisor SIN email
             const { data, error } = await supabaseClient
                 .from('supervisores')
                 .insert({
-                    // id: NO se envía (se genera automáticamente con SERIAL)
                     apellido_paterno: apellidoPaterno,
                     apellido_materno: apellidoMaterno,
                     nombre: nombre
@@ -916,7 +947,7 @@ class SafetyObserver {
     getPersonaLabel(p) { return {mecanico:'Mecánico',tubero:'Tubero',electrico:'Eléctrico',otros:'Otros'}[p]||p; }
 
     // ============================================================
-    // GRÁFICAS
+    // GRÁFICAS (todas las funciones completas)
     // ============================================================
 
     createTipoChart(obs) {
