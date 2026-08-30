@@ -2,7 +2,7 @@
 // CONFIGURACIÓN DE SUPABASE
 // ============================================================
 const SUPABASE_URL = 'https://gmaiqpvjlpvygeexsavb.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYWlxcHZqbHB2eWdlZXhzYXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MzM3MzIsImV4cCI6MjEwMjMwOTczMn0.iDhDw31RdgAlFs0G2zQ570r7Jh9sqyiey6-1W0kdgQw';
+const SUPABASE_ANON_KEY = 'TU_CLAVE_ANON_AQUI';
 
 // Inicializar Supabase
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -159,8 +159,8 @@ class SafetyObserver {
                 return;
             }
 
-            // Email generado internamente (el usuario no lo ve)
-            const email = `${nombre}.${apellido}@safety.local`;
+            // Email generado internamente con dominio válido
+            const email = `${nombre}.${apellido}@safetyobserver.com`;
             
             console.log('🔐 Intentando iniciar sesión como:', nombre, apellido);
             
@@ -218,12 +218,12 @@ class SafetyObserver {
         }
 
         try {
-            // Email generado internamente (el usuario no lo ve)
-            const email = `${nombre}.${apellidoPaterno}@safety.local`;
+            // Email generado internamente con dominio válido
+            const email = `${nombre}.${apellidoPaterno}@safetyobserver.com`;
             
             console.log('📝 Registrando usuario:', nombre, apellidoPaterno);
             
-            // Registrar en Supabase Auth (el usuario no ve el email)
+            // Registrar en Supabase Auth
             const { data, error } = await supabaseClient.auth.signUp({
                 email: email,
                 password: password,
