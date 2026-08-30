@@ -1,8 +1,8 @@
 // ============================================================
-// CONFIGURACIÓN DE SUPABASE - ACTUALIZA ESTOS VALORES
+// CONFIGURACIÓN DE SUPABASE
 // ============================================================
-const SUPABASE_URL = 'https://nbpbwqktpzazodgcmzdf.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5icGJ3cWt0cHphem9kZ2NtemRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNzQwODcsImV4cCI6MjEwMjY1MDA4N30.yetiKSvrGryh8rSdDgqfmBHQjCZUFcQBC3n9uV0fvXI';
+const SUPABASE_URL = 'https://gmaiqpvjlpvygeexsavb.supabase.co';
+const SUPABASE_ANON_KEY = 'TU_CLAVE_ANON_AQUI';  // Reemplaza con tu clave
 
 // Inicializar Supabase
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -41,6 +41,7 @@ class SafetyObserver {
         setTimeout(() => {
             this.generarHeatmap();
             this.generarGraficaBuenasPracticas();
+            this.generarDiagramaPareto();
         }, 500);
     }
 
@@ -51,14 +52,11 @@ class SafetyObserver {
     async verificarAutenticacion() {
         try {
             const { data: { user }, error } = await supabaseClient.auth.getUser();
-            
             if (error || !user) {
                 return false;
             }
-            
             this.usuarioActual = user;
             console.log('✅ Usuario autenticado:', user.email);
-            console.log('🆔 User ID:', user.id);
             return true;
         } catch (error) {
             console.error('Error verificando autenticación:', error);
@@ -161,7 +159,6 @@ class SafetyObserver {
 
             this.usuarioActual = data.user;
             console.log('✅ Usuario autenticado:', data.user.email);
-            console.log('🆔 User ID:', data.user.id);
             
             const modal = document.getElementById('login-modal');
             if (modal) modal.remove();
@@ -173,6 +170,7 @@ class SafetyObserver {
             await this.loadStatistics();
             this.generarHeatmap();
             this.generarGraficaBuenasPracticas();
+            this.generarDiagramaPareto();
             
         } catch (error) {
             console.error('❌ Error inesperado:', error);
@@ -200,6 +198,7 @@ class SafetyObserver {
         try {
             console.log('📝 Registrando usuario:', email);
             
+            // Registrar en Supabase Auth (requiere email para autenticación)
             const { data, error } = await supabaseClient.auth.signUp({
                 email: email,
                 password: password,
@@ -224,18 +223,16 @@ class SafetyObserver {
             }
 
             console.log('✅ Usuario registrado:', data.user.email);
-            console.log('🆔 User ID:', data.user.id);
 
-            // Guardar en la tabla supervisores con UUID
+            // Guardar en supervisores SIN el campo email
             try {
                 const { error: insertError } = await supabaseClient
                     .from('supervisores')
                     .insert({
-                        id: data.user.id,  // UUID de Supabase Auth
+                        // id: NO se envía (se genera automáticamente con SERIAL)
                         nombre: nombre,
                         apellido_paterno: apellidoPaterno,
-                        apellido_materno: apellidoMaterno,
-                        email: email
+                        apellido_materno: apellidoMaterno
                     });
 
                 if (insertError) {
@@ -512,38 +509,9 @@ class SafetyObserver {
     }
 
     // ============================================================
-    // OBTENER PRÓXIMO ID NUMÉRICO PARA OBSERVACIONES
-    // ============================================================
-    async getNextObservationId() {
-        try {
-            // Obtener el ID máximo actual
-            const { data, error } = await supabaseClient
-                .from('observaciones')
-                .select('id')
-                .order('id', { ascending: false })
-                .limit(1);
-
-            if (error) {
-                console.error('Error al obtener último ID:', error);
-                return 1;
-            }
-
-            // Si no hay registros, empezar desde 1
-            if (!data || data.length === 0) {
-                return 1;
-            }
-
-            // Sumar 1 al último ID
-            return data[0].id + 1;
-        } catch (error) {
-            console.error('Error en getNextObservationId:', error);
-            return 1;
-        }
-    }
-
-    // ============================================================
     // GUARDAR OBSERVACIÓN EN SUPABASE
     // ============================================================
+    
     async saveObservation() {
         if (!this.validateForm()) return;
 
@@ -555,21 +523,28 @@ class SafetyObserver {
 
         const now = new Date();
         
-        // OBTENER EL PRÓXIMO ID NUMÉRICO
-        const nuevoId = await this.getNextObservationId();
-        console.log('📊 Nuevo ID asignado:', nuevoId);
-
         // Buscar el supervisor EVALUADO (el seleccionado en el formulario)
         const supervisorEvaluado = this.supervisores.find(s => 
             `${s.apellido_paterno} ${s.apellido_materno} ${s.nombre}` === document.getElementById('supervisor-select').value
         );
 
-        // El supervisor que REGISTRA es el usuario actual (UUID)
-        const supervisorRegistraId = this.usuarioActual.id;
+        // Buscar el supervisor que REGISTRA (el usuario actual)
+        // Como no tenemos email en supervisores, buscamos por nombre y apellidos
+        const nombreRegistra = this.usuarioActual.user_metadata?.nombre || '';
+        const apellidoPaternoRegistra = this.usuarioActual.user_metadata?.apellido_paterno || '';
+        const apellidoMaternoRegistra = this.usuarioActual.user_metadata?.apellido_materno || '';
+        
+        const supervisorRegistra = this.supervisores.find(s => 
+            s.nombre === nombreRegistra &&
+            s.apellido_paterno === apellidoPaternoRegistra &&
+            s.apellido_materno === apellidoMaternoRegistra
+        );
+
+        // Si no se encuentra, usar el primer supervisor (fallback)
+        const registraId = supervisorRegistra?.id || (this.supervisores.length > 0 ? this.supervisores[0].id : null);
 
         const obs = {
-            id: nuevoId,  // ID numérico generado por el código
-            supervisor_registra_id: supervisorRegistraId,
+            supervisor_registra_id: registraId,
             supervisor_evaluado_id: supervisorEvaluado?.id || null,
             area: document.querySelector('input[name="area"]:checked').value,
             modulo: document.getElementById('modulo').value || null,
@@ -581,7 +556,10 @@ class SafetyObserver {
             fecha: now.toISOString()
         };
 
-        console.log('📤 Enviando observación con ID:', obs.id, obs);
+        // Eliminar cualquier campo id que pudiera existir
+        delete obs.id;
+        
+        console.log('📤 Enviando observación:', obs);
 
         try {
             this.showToast('⏳ Guardando observación...');
@@ -666,14 +644,12 @@ class SafetyObserver {
             if (error) throw error;
 
             const observacionesConSupervisores = (observaciones || []).map(obs => {
-                // Nombre del supervisor que REGISTRA
                 if (obs.registra) {
                     obs.registra_nombre = `${obs.registra.apellido_paterno} ${obs.registra.apellido_materno} ${obs.registra.nombre}`;
                 } else {
                     obs.registra_nombre = 'Sin identificar';
                 }
                 
-                // Nombre del supervisor EVALUADO
                 if (obs.evaluado) {
                     obs.evaluado_nombre = `${obs.evaluado.apellido_paterno} ${obs.evaluado.apellido_materno} ${obs.evaluado.nombre}`;
                 } else {
@@ -744,7 +720,7 @@ class SafetyObserver {
         try {
             const { data, error } = await supabaseClient
                 .from('supervisores')
-                .select('*')
+                .select('*')  // Sin email
                 .order('apellido_paterno');
             
             if (error) throw error;
@@ -833,24 +809,14 @@ class SafetyObserver {
                 return;
             }
             
-            // Generar UUID para el supervisor (ya que no tiene cuenta de auth)
-            const uuid = crypto.randomUUID ? crypto.randomUUID() : 
-                'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                    const r = Math.random() * 16 | 0;
-                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-                    return v.toString(16);
-                });
-            
-            const emailTemp = `${apellidoPaterno.toLowerCase()}.${nombre.toLowerCase()}@supervisor.local`;
-            
+            // Insertar supervisor SIN email
             const { data, error } = await supabaseClient
                 .from('supervisores')
                 .insert({
-                    id: uuid,
+                    // id: NO se envía (se genera automáticamente con SERIAL)
                     apellido_paterno: apellidoPaterno,
                     apellido_materno: apellidoMaterno,
-                    nombre: nombre,
-                    email: emailTemp
+                    nombre: nombre
                 })
                 .select();
             
@@ -1065,10 +1031,6 @@ class SafetyObserver {
         }
     }
 
-    // ============================================================
-    // GRÁFICA DE SUPERVISORES - OBSERVACIONES DE RIESGO
-    // ============================================================
-    
     createSupervisorRiesgosChart(obs) {
         const riesgos = obs.filter(o => o.tipo !== 'buena-practica');
         const supervisores = {};
@@ -1160,10 +1122,6 @@ class SafetyObserver {
         });
     }
 
-    // ============================================================
-    // GRÁFICA DE SUPERVISORES - BUENAS PRÁCTICAS
-    // ============================================================
-    
     createSupervisorBuenasChart(obs) {
         const buenas = obs.filter(o => o.tipo === 'buena-practica');
         const supervisores = {};
@@ -1321,10 +1279,6 @@ class SafetyObserver {
                 console.error('Error en gráfica de buenas prácticas:', error);
             });
     }
-
-    // ============================================================
-    // DIAGRAMA DE PARETO
-    // ============================================================
 
     generarDiagramaPareto() {
         console.log('🔄 Generando diagrama de Pareto...');
@@ -1661,14 +1615,26 @@ class SafetyObserver {
             });
     }
 
+    // ============================================================
+    // CERRAR SESIÓN
+    // ============================================================
+    
     async cerrarSesion() {
+        if (!confirm('¿Estás seguro de que quieres cerrar sesión?')) {
+            return;
+        }
+        
         try {
             await supabaseClient.auth.signOut();
             this.usuarioActual = null;
-            this.showToast('✅ Sesión cerrada');
-            location.reload();
+            this.showToast('✅ Sesión cerrada exitosamente');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 500);
         } catch (error) {
             console.error('Error cerrando sesión:', error);
+            this.showToast('❌ Error al cerrar sesión: ' + error.message);
         }
     }
 }
