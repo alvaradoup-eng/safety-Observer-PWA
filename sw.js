@@ -1,4 +1,4 @@
-const CACHE_NAME = 'safety-observer-v5'; // ← Versión actualizada para forzar refresco
+const CACHE_NAME = 'safety-observer-v6'; // ← Versión actualizada para forzar refresco
 const ASSETS_TO_CACHE = [
     '/safety-observer-pwa/',
     '/safety-observer-pwa/index.html',
