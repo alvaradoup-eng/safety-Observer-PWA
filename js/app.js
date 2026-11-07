@@ -1,11 +1,9 @@
 // ============================================================
-// CONFIGURACIÓN DE SUPABASE
+// CONFIGURACIÓN DE ALMACENAMIENTO LOCAL
+// (Versión sin base de datos remota / Supabase)
 // ============================================================
-const SUPABASE_URL = 'https://gmaiqpvjlpvygeexsavb.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYWlxcHZqbHB2eWdlZXhzYXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MzM3MzIsImV4cCI6MjEwMjMwOTczMn0.iDhDw31RdgAlFs0G2zQ570r7Jh9sqyiey6-1W0kdgQw';
-
-// Inicializar Supabase
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const STORAGE_OBSERVACIONES = 'safety_observaciones';
+const STORAGE_SUPERVISORES = 'safety_supervisores';
 
 class SafetyObserver {
     constructor() {
@@ -25,12 +23,9 @@ class SafetyObserver {
     }
 
     async init() {
-        const autenticado = await this.verificarAutenticacion();
-        if (!autenticado) {
-            this.mostrarLogin();
-            return;
-        }
-        
+        // Usuario local (no hay autenticación remota)
+        this.usuarioActual = { id: 'local-user', email: 'local@safety-observer' };
+
         await this.cargarSupervisores();
         this.registerSW();
         this.setupNavigation();
@@ -41,328 +36,66 @@ class SafetyObserver {
         setTimeout(() => {
             this.generarHeatmap();
             this.generarGraficaBuenasPracticas();
-            this.generarDiagramaPareto();
         }, 500);
     }
 
     // ============================================================
-    // AUTENTICACIÓN
+    // ALMACENAMIENTO LOCAL
     // ============================================================
-    
-    async verificarAutenticacion() {
+
+    getLocalObservaciones() {
         try {
-            const { data: { user }, error } = await supabaseClient.auth.getUser();
-            if (error || !user) {
-                return false;
-            }
-            this.usuarioActual = user;
-            console.log('✅ Usuario autenticado');
-            return true;
+            return JSON.parse(localStorage.getItem(STORAGE_OBSERVACIONES) || '[]');
         } catch (error) {
-            console.error('Error verificando autenticación:', error);
-            return false;
+            console.error('Error leyendo observaciones locales:', error);
+            return [];
         }
     }
 
-    mostrarLogin() {
-        const loginHTML = `
-            <div id="login-modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;justify-content:center;align-items:center;z-index:9999;">
-                <div style="background:white;padding:40px;border-radius:16px;max-width:400px;width:90%;">
-                    <div style="text-align:center;margin-bottom:20px;">
-                        <div style="font-size:48px;">🦺</div>
-                        <h2 style="color:#1a237e;margin:10px 0;">Safety Observer</h2>
-                        <p style="color:#666;font-size:14px;">Accede para registrar observaciones</p>
-                    </div>
-                    <div id="login-form">
-                        <div class="form-group">
-                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Nombre</label>
-                            <input type="text" id="login-nombre" placeholder="Tu nombre" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
-                        </div>
-                        <div class="form-group">
-                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Apellido Paterno</label>
-                            <input type="text" id="login-apellido" placeholder="Tu apellido paterno" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
-                        </div>
-                        <div class="form-group">
-                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Contraseña</label>
-                            <input type="password" id="login-password" placeholder="********" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
-                        </div>
-                        <button type="button" onclick="app.iniciarSesion()" style="width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:16px;margin-top:10px;">
-                            🔐 Iniciar Sesión
-                        </button>
-                        <p style="text-align:center;margin-top:15px;font-size:13px;color:#666;">
-                            ¿No tienes cuenta? 
-                            <a href="#" onclick="app.mostrarRegistro()" style="color:#2563eb;text-decoration:none;font-weight:600;">Regístrate</a>
-                        </p>
-                    </div>
-                    <div id="registro-form" style="display:none;">
-                        <div class="form-group">
-                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Nombre(s)</label>
-                            <input type="text" id="registro-nombre" placeholder="Tu nombre" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
-                        </div>
-                        <div class="form-group">
-                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Apellido Paterno</label>
-                            <input type="text" id="registro-apellido-paterno" placeholder="Apellido paterno" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
-                        </div>
-                        <div class="form-group">
-                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Apellido Materno</label>
-                            <input type="text" id="registro-apellido-materno" placeholder="Apellido materno (opcional)" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
-                        </div>
-                        <div class="form-group">
-                            <label style="display:block;font-weight:600;color:#37474f;margin-bottom:5px;">Contraseña</label>
-                            <input type="password" id="registro-password" placeholder="********" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;">
-                        </div>
-                        <button type="button" onclick="app.registrarUsuario()" style="width:100%;padding:12px;background:#4caf50;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:16px;margin-top:10px;">
-                            📝 Registrarse
-                        </button>
-                        <p style="text-align:center;margin-top:15px;font-size:13px;color:#666;">
-                            ¿Ya tienes cuenta? 
-                            <a href="#" onclick="app.mostrarLoginForm()" style="color:#2563eb;text-decoration:none;font-weight:600;">Inicia Sesión</a>
-                        </p>
-                    </div>
-                </div>
-            </div>
-        `;
-        const existingModal = document.getElementById('login-modal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-        document.body.insertAdjacentHTML('beforeend', loginHTML);
+    setLocalObservaciones(observaciones) {
+        localStorage.setItem(STORAGE_OBSERVACIONES, JSON.stringify(observaciones));
     }
 
-    async iniciarSesion() {
-        const nombre = document.getElementById('login-nombre').value.trim();
-        const apellido = document.getElementById('login-apellido').value.trim();
-        const password = document.getElementById('login-password').value;
-        
-        if (!nombre || !apellido || !password) {
-            this.mostrarMensajeError('⚠️ Completa todos los campos');
-            return;
-        }
-
+    getLocalSupervisores() {
         try {
-            // Buscar el supervisor por nombre y apellido
-            const { data: supervisor, error: searchError } = await supabaseClient
-                .from('supervisores')
-                .select('*')
-                .eq('nombre', nombre)
-                .eq('apellido_paterno', apellido)
-                .maybeSingle();
-
-            if (searchError) {
-                console.error('❌ Error buscando supervisor:', searchError);
-                this.mostrarMensajeError('❌ Error al buscar el usuario');
-                return;
-            }
-
-            if (!supervisor) {
-                this.mostrarMensajeError('❌ Usuario no encontrado. Verifica tus datos.');
-                return;
-            }
-
-            // Email generado internamente con dominio válido
-            const email = `${nombre}.${apellido}@safetyobserver.com`;
-            
-            console.log('🔐 Intentando iniciar sesión como:', nombre, apellido);
-            
-            const { data, error } = await supabaseClient.auth.signInWithPassword({
-                email: email,
-                password: password
-            });
-
-            if (error) {
-                console.error('❌ Error de autenticación:', error);
-                this.mostrarMensajeError('❌ Contraseña incorrecta. Intenta nuevamente.');
-                return;
-            }
-
-            if (!data || !data.user) {
-                this.mostrarMensajeError('❌ No se pudo iniciar sesión. Verifica tus credenciales.');
-                return;
-            }
-
-            this.usuarioActual = data.user;
-            console.log('✅ Usuario autenticado:', nombre, apellido);
-            
-            const modal = document.getElementById('login-modal');
-            if (modal) modal.remove();
-            
-            this.mostrarMensajeExito('✅ Bienvenido ' + nombre + ' ' + apellido);
-            
-            await this.cargarSupervisores();
-            await this.loadObservations();
-            await this.loadStatistics();
-            this.generarHeatmap();
-            this.generarGraficaBuenasPracticas();
-            this.generarDiagramaPareto();
-            
+            return JSON.parse(localStorage.getItem(STORAGE_SUPERVISORES) || '[]');
         } catch (error) {
-            console.error('❌ Error inesperado:', error);
-            this.mostrarMensajeError('❌ Error inesperado: ' + error.message);
+            console.error('Error leyendo supervisores locales:', error);
+            return [];
         }
     }
 
-    async registrarUsuario() {
-        const nombre = document.getElementById('registro-nombre').value.trim();
-        const apellidoPaterno = document.getElementById('registro-apellido-paterno').value.trim();
-        const apellidoMaterno = document.getElementById('registro-apellido-materno').value.trim();
-        const password = document.getElementById('registro-password').value;
-
-        if (!nombre || !apellidoPaterno || !password) {
-            this.mostrarMensajeError('⚠️ Completa todos los campos obligatorios');
-            return;
-        }
-
-        if (password.length < 6) {
-            this.mostrarMensajeError('⚠️ La contraseña debe tener al menos 6 caracteres');
-            return;
-        }
-
-        try {
-            // Email generado internamente con dominio válido
-            const email = `${nombre}.${apellidoPaterno}@safetyobserver.com`;
-            
-            console.log('📝 Registrando usuario:', nombre, apellidoPaterno);
-            
-            // Registrar en Supabase Auth
-            const { data, error } = await supabaseClient.auth.signUp({
-                email: email,
-                password: password,
-                options: {
-                    data: {
-                        nombre: nombre,
-                        apellido_paterno: apellidoPaterno,
-                        apellido_materno: apellidoMaterno || ''
-                    }
-                }
-            });
-
-            if (error) {
-                console.error('❌ Error en registro:', error);
-                this.mostrarMensajeError('❌ Error al registrarse: ' + error.message);
-                return;
-            }
-
-            if (!data || !data.user) {
-                this.mostrarMensajeError('❌ No se pudo registrar el usuario. Intenta nuevamente.');
-                return;
-            }
-
-            console.log('✅ Usuario registrado:', nombre, apellidoPaterno);
-
-            // Guardar en supervisores
-            try {
-                const supervisorData = {
-                    nombre: nombre,
-                    apellido_paterno: apellidoPaterno,
-                    apellido_materno: apellidoMaterno || ''
-                };
-                
-                // Verificar si ya existe un supervisor con ese nombre y apellido
-                const { data: existente, error: checkError } = await supabaseClient
-                    .from('supervisores')
-                    .select('*')
-                    .eq('nombre', nombre)
-                    .eq('apellido_paterno', apellidoPaterno)
-                    .maybeSingle();
-
-                if (checkError) {
-                    console.error('❌ Error verificando existencia:', checkError);
-                }
-
-                if (!existente) {
-                    const { error: insertError } = await supabaseClient
-                        .from('supervisores')
-                        .insert(supervisorData);
-
-                    if (insertError) {
-                        console.error('❌ Error guardando supervisor:', insertError);
-                        this.mostrarMensajeExito('✅ Usuario registrado, pero hubo un problema al guardar los datos del supervisor');
-                    } else {
-                        this.mostrarMensajeExito('✅ Usuario registrado exitosamente');
-                    }
-                } else {
-                    this.mostrarMensajeExito('✅ Usuario ya existente. Inicia sesión.');
-                }
-            } catch (insertError) {
-                console.error('❌ Error guardando supervisor:', insertError);
-                this.mostrarMensajeExito('✅ Usuario registrado, pero hubo un problema al guardar los datos del supervisor');
-            }
-
-            document.getElementById('registro-nombre').value = '';
-            document.getElementById('registro-apellido-paterno').value = '';
-            document.getElementById('registro-apellido-materno').value = '';
-            document.getElementById('registro-password').value = '';
-            
-            this.mostrarLoginForm();
-            
-            // Prellenar campos de login
-            document.getElementById('login-nombre').value = nombre;
-            document.getElementById('login-apellido').value = apellidoPaterno;
-            
-            this.mostrarMensajeExito('✅ Usuario registrado. Ahora inicia sesión.');
-            
-        } catch (error) {
-            console.error('❌ Error inesperado en registro:', error);
-            this.mostrarMensajeError('❌ Error inesperado: ' + error.message);
-        }
+    setLocalSupervisores(supervisores) {
+        localStorage.setItem(STORAGE_SUPERVISORES, JSON.stringify(supervisores));
     }
 
-    mostrarRegistro() {
-        const loginForm = document.getElementById('login-form');
-        const registroForm = document.getElementById('registro-form');
-        if (loginForm) loginForm.style.display = 'none';
-        if (registroForm) registroForm.style.display = 'block';
-        this.limpiarMensajes();
+    getSupervisorById(id) {
+        if (!id) return null;
+        return this.getLocalSupervisores().find(s => s.id === id) || null;
     }
 
-    mostrarLoginForm() {
-        const loginForm = document.getElementById('login-form');
-        const registroForm = document.getElementById('registro-form');
-        if (loginForm) loginForm.style.display = 'block';
-        if (registroForm) registroForm.style.display = 'none';
-        this.limpiarMensajes();
+    nombreSupervisor(supervisor) {
+        if (!supervisor) return null;
+        return `${supervisor.apellido_paterno} ${supervisor.apellido_materno} ${supervisor.nombre}`;
     }
 
-    mostrarMensajeError(mensaje) {
-        this.showToast(mensaje);
-        
-        const modal = document.getElementById('login-modal');
-        if (modal) {
-            const msgAnterior = modal.querySelector('.mensaje-modal');
-            if (msgAnterior) msgAnterior.remove();
-            
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'mensaje-modal';
-            msgDiv.style.cssText = 'background:#ffebee;color:#c62828;padding:10px;border-radius:6px;margin:10px 0;text-align:center;font-weight:600;';
-            msgDiv.textContent = mensaje;
-            
-            const titulo = modal.querySelector('h2');
-            if (titulo) {
-                titulo.parentNode.insertBefore(msgDiv, titulo.nextSibling);
-            }
-            
-            setTimeout(() => {
-                if (msgDiv.parentNode) msgDiv.remove();
-            }, 5000);
-        }
-    }
-
-    mostrarMensajeExito(mensaje) {
-        this.showToast(mensaje);
-    }
-
-    limpiarMensajes() {
-        const modal = document.getElementById('login-modal');
-        if (modal) {
-            const mensajes = modal.querySelectorAll('.mensaje-modal');
-            mensajes.forEach(el => el.remove());
-        }
+    // Agrega los nombres de los supervisores (registra / evaluado) a cada observación
+    enriquecerObservaciones(observaciones) {
+        return observaciones.map(obs => {
+            const registra = this.getSupervisorById(obs.supervisor_registra_id);
+            const evaluado = this.getSupervisorById(obs.supervisor_evaluado_id);
+            return {
+                ...obs,
+                registra_nombre: this.nombreSupervisor(registra) || 'Sin identificar',
+                evaluado_nombre: this.nombreSupervisor(evaluado) || 'No especificado'
+            };
+        });
     }
 
     // ============================================================
     // REGISTER SW
     // ============================================================
-    
+
     async registerSW() {
         if ('serviceWorker' in navigator) {
             try {
@@ -549,36 +282,35 @@ class SafetyObserver {
     }
 
     // ============================================================
-    // GUARDAR OBSERVACIÓN
+    // OBTENER PRÓXIMO ID NUMÉRICO PARA OBSERVACIONES
     // ============================================================
-    
+    async getNextObservationId() {
+        const observaciones = this.getLocalObservaciones();
+        if (!observaciones.length) return 1;
+        const maxId = observaciones.reduce((max, o) => Math.max(max, Number(o.id) || 0), 0);
+        return maxId + 1;
+    }
+
+    // ============================================================
+    // GUARDAR OBSERVACIÓN (ALMACENAMIENTO LOCAL)
+    // ============================================================
     async saveObservation() {
         if (!this.validateForm()) return;
 
-        if (!this.usuarioActual) {
-            this.showToast('⚠️ Por favor, inicia sesión primero');
-            this.mostrarLogin();
-            return;
-        }
-
         const now = new Date();
-        
-        const supervisorEvaluado = this.supervisores.find(s => 
+
+        // OBTENER EL PRÓXIMO ID NUMÉRICO
+        const nuevoId = await this.getNextObservationId();
+        console.log('📊 Nuevo ID asignado:', nuevoId);
+
+        // Buscar el supervisor EVALUADO (el seleccionado en el formulario)
+        const supervisorEvaluado = this.supervisores.find(s =>
             `${s.apellido_paterno} ${s.apellido_materno} ${s.nombre}` === document.getElementById('supervisor-select').value
         );
 
-        const nombreRegistra = this.usuarioActual.user_metadata?.nombre || '';
-        const apellidoPaternoRegistra = this.usuarioActual.user_metadata?.apellido_paterno || '';
-        
-        const supervisorRegistra = this.supervisores.find(s => 
-            s.nombre === nombreRegistra &&
-            s.apellido_paterno === apellidoPaternoRegistra
-        );
-
-        const registraId = supervisorRegistra?.id || (this.supervisores.length > 0 ? this.supervisores[0].id : null);
-
         const obs = {
-            supervisor_registra_id: registraId,
+            id: nuevoId,  // ID numérico generado por el código
+            supervisor_registra_id: this.usuarioActual ? this.usuarioActual.id : null,
             supervisor_evaluado_id: supervisorEvaluado?.id || null,
             area: document.querySelector('input[name="area"]:checked').value,
             modulo: document.getElementById('modulo').value || null,
@@ -590,37 +322,29 @@ class SafetyObserver {
             fecha: now.toISOString()
         };
 
-        delete obs.id;
-        
-        console.log('📤 Enviando observación:', obs);
+        console.log('📤 Guardando observación con ID:', obs.id, obs);
 
         try {
             this.showToast('⏳ Guardando observación...');
-            
-            const { data, error } = await supabaseClient
-                .from('observaciones')
-                .insert(obs)
-                .select();
 
-            if (error) {
-                console.error('❌ Error de Supabase:', error);
-                throw error;
-            }
+            const observaciones = this.getLocalObservaciones();
+            observaciones.push(obs);
+            this.setLocalObservaciones(observaciones);
 
-            console.log('✅ Observación guardada:', data);
+            console.log('✅ Observación guardada localmente');
 
-            this.showToast('✅ Observación guardada en la nube');
+            this.showToast('✅ Observación guardada');
             this.resetForm();
-            
+
             await this.loadObservations();
             await this.loadStatistics();
-            
+
             setTimeout(() => {
                 this.generarHeatmap();
                 this.generarGraficaBuenasPracticas();
                 this.generarDiagramaPareto();
             }, 300);
-            
+
         } catch (error) {
             console.error('❌ Error guardando observación:', error);
             this.showToast('❌ Error al guardar: ' + error.message);
@@ -655,59 +379,11 @@ class SafetyObserver {
 
     async loadObservations() {
         try {
-            const { data: observaciones, error } = await supabaseClient
-                .from('observaciones')
-                .select(`
-                    *,
-                    registra:supervisor_registra_id (
-                        id,
-                        nombre,
-                        apellido_paterno,
-                        apellido_materno
-                    ),
-                    evaluado:supervisor_evaluado_id (
-                        id,
-                        nombre,
-                        apellido_paterno,
-                        apellido_materno
-                    )
-                `)
-                .order('fecha', { ascending: false });
-
-            if (error) throw error;
-
-            const observacionesConSupervisores = (observaciones || []).map(obs => {
-                if (obs.registra) {
-                    obs.registra_nombre = `${obs.registra.apellido_paterno} ${obs.registra.apellido_materno} ${obs.registra.nombre}`;
-                } else {
-                    obs.registra_nombre = 'Sin identificar';
-                }
-                
-                if (obs.evaluado) {
-                    obs.evaluado_nombre = `${obs.evaluado.apellido_paterno} ${obs.evaluado.apellido_materno} ${obs.evaluado.nombre}`;
-                } else {
-                    obs.evaluado_nombre = 'No especificado';
-                }
-                
-                return obs;
-            });
-
-            const filtered = this.applyFilters(observacionesConSupervisores || []);
+            const observacionesConSupervisores = this.enriquecerObservaciones(this.getLocalObservaciones());
+            const filtered = this.applyFilters(observacionesConSupervisores);
             this.renderObservations(filtered);
-            
-            if (observacionesConSupervisores && observacionesConSupervisores.length > 0) {
-                localStorage.setItem('observaciones_cache', JSON.stringify(observacionesConSupervisores));
-            }
-            
         } catch (error) {
             console.error('Error cargando observaciones:', error);
-            const cached = localStorage.getItem('observaciones_cache');
-            if (cached) {
-                const data = JSON.parse(cached);
-                const filtered = this.applyFilters(data);
-                this.renderObservations(filtered);
-                this.showToast('📶 Mostrando datos en modo offline');
-            }
         }
     }
 
@@ -747,18 +423,12 @@ class SafetyObserver {
 
     // -------------------------------------------
     // GESTIÓN DE SUPERVISORES
-    // ===========================================
-    
+    // -------------------------------------------
+
     async cargarSupervisores() {
         try {
-            const { data, error } = await supabaseClient
-                .from('supervisores')
-                .select('*')
-                .order('apellido_paterno');
-            
-            if (error) throw error;
-            
-            this.supervisores = data || [];
+            this.supervisores = this.getLocalSupervisores()
+                .sort((a, b) => (a.apellido_paterno || '').localeCompare(b.apellido_paterno || ''));
             this.actualizarSelectSupervisores();
             console.log('✅ Supervisores cargados:', this.supervisores.length);
         } catch (error) {
@@ -770,10 +440,10 @@ class SafetyObserver {
     actualizarSelectSupervisores() {
         const select = document.getElementById('supervisor-select');
         if (!select) return;
-        
+
         const valorActual = select.value;
         select.innerHTML = '<option value="">Seleccionar supervisor...</option>';
-        
+
         this.supervisores.forEach(s => {
             const option = document.createElement('option');
             const nombreCompleto = `${s.apellido_paterno} ${s.apellido_materno} ${s.nombre}`;
@@ -781,7 +451,7 @@ class SafetyObserver {
             option.textContent = nombreCompleto;
             select.appendChild(option);
         });
-        
+
         if (valorActual && this.supervisores.some(s => `${s.apellido_paterno} ${s.apellido_materno} ${s.nombre}` === valorActual)) {
             select.value = valorActual;
         }
@@ -790,7 +460,7 @@ class SafetyObserver {
     // ============================================================
     // MODAL PARA AGREGAR SUPERVISOR
     // ============================================================
-    
+
     mostrarModalSupervisor() {
         const modal = document.getElementById('modal-supervisor');
         if (modal) {
@@ -813,54 +483,62 @@ class SafetyObserver {
         const apellidoPaterno = document.getElementById('supervisor-apellido-paterno').value.trim();
         const apellidoMaterno = document.getElementById('supervisor-apellido-materno').value.trim();
         const nombre = document.getElementById('supervisor-nombre').value.trim();
-        
+
         if (!apellidoPaterno) {
             this.showToast('⚠️ El apellido paterno es obligatorio');
             document.getElementById('supervisor-apellido-paterno').focus();
             return;
         }
-        
+
         if (!nombre) {
             this.showToast('⚠️ El nombre es obligatorio');
             document.getElementById('supervisor-nombre').focus();
             return;
         }
-        
+
         try {
-            const { data: existentes, error: searchError } = await supabaseClient
-                .from('supervisores')
-                .select('*')
-                .eq('apellido_paterno', apellidoPaterno)
-                .eq('apellido_materno', apellidoMaterno)
-                .eq('nombre', nombre);
-            
-            if (searchError) throw searchError;
-            
-            if (existentes && existentes.length > 0) {
+            const supervisores = this.getLocalSupervisores();
+
+            const existe = supervisores.some(s =>
+                s.apellido_paterno === apellidoPaterno &&
+                s.apellido_materno === apellidoMaterno &&
+                s.nombre === nombre
+            );
+
+            if (existe) {
                 this.showToast('⚠️ Este supervisor ya está registrado');
                 this.cerrarModalSupervisor();
                 return;
             }
-            
-            const { data, error } = await supabaseClient
-                .from('supervisores')
-                .insert({
-                    apellido_paterno: apellidoPaterno,
-                    apellido_materno: apellidoMaterno,
-                    nombre: nombre
-                })
-                .select();
-            
-            if (error) throw error;
-            
+
+            // Generar UUID para el supervisor
+            const uuid = crypto.randomUUID ? crypto.randomUUID() :
+                'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+
+            const emailTemp = `${apellidoPaterno.toLowerCase()}.${nombre.toLowerCase()}@supervisor.local`;
+
+            supervisores.push({
+                id: uuid,
+                apellido_paterno: apellidoPaterno,
+                apellido_materno: apellidoMaterno,
+                nombre: nombre,
+                email: emailTemp
+            });
+
+            this.setLocalSupervisores(supervisores);
+
             await this.cargarSupervisores();
-            
+
             const nombreCompleto = `${apellidoPaterno} ${apellidoMaterno} ${nombre}`;
             document.getElementById('supervisor-select').value = nombreCompleto;
-            
+
             this.cerrarModalSupervisor();
             this.showToast('✅ Supervisor registrado exitosamente');
-            
+
         } catch (error) {
             console.error('Error guardando supervisor:', error);
             this.showToast('❌ Error al guardar supervisor: ' + error.message);
@@ -870,55 +548,19 @@ class SafetyObserver {
     // ============================================================
     // ESTADÍSTICAS
     // ============================================================
-    
+
     async loadStatistics() {
         try {
-            const { data: observaciones, error } = await supabaseClient
-                .from('observaciones')
-                .select(`
-                    *,
-                    registra:supervisor_registra_id (
-                        id,
-                        nombre,
-                        apellido_paterno,
-                        apellido_materno
-                    ),
-                    evaluado:supervisor_evaluado_id (
-                        id,
-                        nombre,
-                        apellido_paterno,
-                        apellido_materno
-                    )
-                `);
+            const obs = this.enriquecerObservaciones(this.getLocalObservaciones());
 
-            if (error) throw error;
-
-            const observacionesConSupervisores = (observaciones || []).map(obs => {
-                if (obs.registra) {
-                    obs.registra_nombre = `${obs.registra.apellido_paterno} ${obs.registra.apellido_materno} ${obs.registra.nombre}`;
-                } else {
-                    obs.registra_nombre = 'Sin identificar';
-                }
-                
-                if (obs.evaluado) {
-                    obs.evaluado_nombre = `${obs.evaluado.apellido_paterno} ${obs.evaluado.apellido_materno} ${obs.evaluado.nombre}`;
-                } else {
-                    obs.evaluado_nombre = 'No especificado';
-                }
-                
-                return obs;
-            });
-
-            const obs = observacionesConSupervisores || [];
-            
             document.getElementById('total-obs').textContent = obs.length;
-            
+
             const hoy = new Date().toISOString().split('T')[0];
-            document.getElementById('obs-hoy').textContent = obs.filter(o => 
+            document.getElementById('obs-hoy').textContent = obs.filter(o =>
                 new Date(o.fecha).toISOString().split('T')[0] === hoy
             ).length;
-            
-            document.getElementById('obs-criticas').textContent = obs.filter(o => 
+
+            document.getElementById('obs-criticas').textContent = obs.filter(o =>
                 o.nivel_riesgo === 'critico'
             ).length;
 
@@ -931,7 +573,7 @@ class SafetyObserver {
             this.createSupervisorBuenasChart(obs);
             this.generarGraficaBuenasPracticas();
             this.generarDiagramaPareto();
-            
+
         } catch (error) {
             console.error('Error cargando estadísticas:', error);
             this.showToast('❌ Error al cargar estadísticas');
@@ -947,7 +589,7 @@ class SafetyObserver {
     getPersonaLabel(p) { return {mecanico:'Mecánico',tubero:'Tubero',electrico:'Eléctrico',otros:'Otros'}[p]||p; }
 
     // ============================================================
-    // GRÁFICAS (todas las funciones completas)
+    // GRÁFICAS
     // ============================================================
 
     createTipoChart(obs) {
@@ -1062,6 +704,10 @@ class SafetyObserver {
         }
     }
 
+    // ============================================================
+    // GRÁFICA DE SUPERVISORES - OBSERVACIONES DE RIESGO
+    // ============================================================
+
     createSupervisorRiesgosChart(obs) {
         const riesgos = obs.filter(o => o.tipo !== 'buena-practica');
         const supervisores = {};
@@ -1152,6 +798,10 @@ class SafetyObserver {
             }
         });
     }
+
+    // ============================================================
+    // GRÁFICA DE SUPERVISORES - BUENAS PRÁCTICAS
+    // ============================================================
 
     createSupervisorBuenasChart(obs) {
         const buenas = obs.filter(o => o.tipo === 'buena-practica');
@@ -1249,67 +899,66 @@ class SafetyObserver {
         const container = document.getElementById('grafica-buenas-practicas');
         if (!container) { console.log('❌ Contenedor no encontrado'); return; }
 
-        supabaseClient
-            .from('observaciones')
-            .select('*')
-            .eq('tipo', 'buena-practica')
-            .then(({ data: buenasPracticas, error }) => {
-                if (error) throw error;
+        try {
+            const buenasPracticas = this.getLocalObservaciones().filter(o => o.tipo === 'buena-practica');
 
-                if (!buenasPracticas || buenasPracticas.length === 0) {
-                    container.innerHTML = `<div class="chart-container" style="height:250px;"><div style="text-align:center;padding:60px 20px;color:#78909c;"><div style="font-size:48px;margin-bottom:15px;">⭐</div><h3 style="color:#37474f;">No hay buenas prácticas registradas</h3><p>Registra buenas prácticas para comenzar a ver estadísticas</p></div></div>`;
-                    return;
-                }
+            if (!buenasPracticas || buenasPracticas.length === 0) {
+                container.innerHTML = `<div class="chart-container" style="height:250px;"><div style="text-align:center;padding:60px 20px;color:#78909c;"><div style="font-size:48px;margin-bottom:15px;">⭐</div><h3 style="color:#37474f;">No hay buenas prácticas registradas</h3><p>Registra buenas prácticas para comenzar a ver estadísticas</p></div></div>`;
+                return;
+            }
 
-                const areasUnicas = [...new Set(buenasPracticas.map(o => this.getAreaLabel(o.area)))];
-                areasUnicas.sort();
+            const areasUnicas = [...new Set(buenasPracticas.map(o => this.getAreaLabel(o.area)))];
+            areasUnicas.sort();
 
-                const datos = {};
-                areasUnicas.forEach(area => { datos[area] = 0; });
-                buenasPracticas.forEach(obs => {
-                    const area = this.getAreaLabel(obs.area);
-                    if (datos[area] !== undefined) datos[area] += 1;
-                });
-
-                const canvasId = 'chart-buenas-practicas';
-                let canvas = document.getElementById(canvasId);
-                if (!canvas) {
-                    canvas = document.createElement('canvas');
-                    canvas.id = canvasId;
-                    container.innerHTML = '';
-                    container.appendChild(canvas);
-                }
-
-                const ctx = canvas.getContext('2d');
-                if (this.buenasPracticasChart) this.buenasPracticasChart.destroy();
-
-                const labels = Object.keys(datos);
-                const values = Object.values(datos);
-                const total = values.reduce((a, b) => a + b, 0);
-                const colores = ['#1b5e20', '#2e7d32', '#388e3c', '#43a047', '#4caf50', '#66bb6a', '#81c784', '#a5d6a7'];
-
-                this.buenasPracticasChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: { labels: labels, datasets: [{ label: 'Buenas Prácticas', data: values, backgroundColor: colores.slice(0, labels.length), borderRadius: 6, borderColor: '#1b5e20', borderWidth: 1 }] },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            title: { display: true, text: `Total: ${total} buenas prácticas registradas`, font: { size: 14, weight: 'bold' }, color: '#1a237e' },
-                            legend: { display: false }
-                        },
-                        scales: {
-                            y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 12 } } },
-                            x: { ticks: { font: { size: 12 } } }
-                        }
-                    }
-                });
-                console.log('✅ Gráfica de buenas prácticas por área generada correctamente');
-            })
-            .catch(error => {
-                console.error('Error en gráfica de buenas prácticas:', error);
+            const datos = {};
+            areasUnicas.forEach(area => { datos[area] = 0; });
+            buenasPracticas.forEach(obs => {
+                const area = this.getAreaLabel(obs.area);
+                if (datos[area] !== undefined) datos[area] += 1;
             });
+
+            const canvasId = 'chart-buenas-practicas';
+            let canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                canvas = document.createElement('canvas');
+                canvas.id = canvasId;
+                container.innerHTML = '';
+                container.appendChild(canvas);
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (this.buenasPracticasChart) this.buenasPracticasChart.destroy();
+
+            const labels = Object.keys(datos);
+            const values = Object.values(datos);
+            const total = values.reduce((a, b) => a + b, 0);
+            const colores = ['#1b5e20', '#2e7d32', '#388e3c', '#43a047', '#4caf50', '#66bb6a', '#81c784', '#a5d6a7'];
+
+            this.buenasPracticasChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: labels, datasets: [{ label: 'Buenas Prácticas', data: values, backgroundColor: colores.slice(0, labels.length), borderRadius: 6, borderColor: '#1b5e20', borderWidth: 1 }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: `Total: ${total} buenas prácticas registradas`, font: { size: 14, weight: 'bold' }, color: '#1a237e' },
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 12 } } },
+                        x: { ticks: { font: { size: 12 } } }
+                    }
+                }
+            });
+            console.log('✅ Gráfica de buenas prácticas por área generada correctamente');
+        } catch (error) {
+            console.error('Error en gráfica de buenas prácticas:', error);
+        }
     }
+
+    // ============================================================
+    // DIAGRAMA DE PARETO
+    // ============================================================
 
     generarDiagramaPareto() {
         console.log('🔄 Generando diagrama de Pareto...');
@@ -1320,352 +969,320 @@ class SafetyObserver {
         
         if (!container) { console.log('❌ Contenedor de Pareto no encontrado'); return; }
 
-        supabaseClient
-            .from('observaciones')
-            .select('*')
-            .then(({ data: observaciones, error }) => {
-                if (error) throw error;
+        try {
+            const observaciones = this.getLocalObservaciones();
+            const observacionesRiesgo = (observaciones || []).filter(o => o.tipo !== 'buena-practica');
 
-                const observacionesRiesgo = (observaciones || []).filter(o => o.tipo !== 'buena-practica');
+            if (!observacionesRiesgo || observacionesRiesgo.length === 0) {
+                container.innerHTML = `<div class="heatmap-empty"><div style="font-size:48px;margin-bottom:15px;">📭</div><h3>No hay datos disponibles</h3><p>Registra observaciones para comenzar a ver el diagrama de Pareto</p></div>`;
+                if (resumenContainer) resumenContainer.style.display = 'none';
+                return;
+            }
 
-                if (!observacionesRiesgo || observacionesRiesgo.length === 0) {
-                    container.innerHTML = `<div class="heatmap-empty"><div style="font-size:48px;margin-bottom:15px;">📭</div><h3>No hay datos disponibles</h3><p>Registra observaciones para comenzar a ver el diagrama de Pareto</p></div>`;
-                    if (resumenContainer) resumenContainer.style.display = 'none';
-                    return;
-                }
+            const tipos = {};
+            observacionesRiesgo.forEach(o => {
+                const tipo = this.getTipoLabel(o.tipo);
+                tipos[tipo] = (tipos[tipo] || 0) + 1;
+            });
 
-                const tipos = {};
-                observacionesRiesgo.forEach(o => {
-                    const tipo = this.getTipoLabel(o.tipo);
-                    tipos[tipo] = (tipos[tipo] || 0) + 1;
-                });
+            const ordenados = Object.entries(tipos).sort((a, b) => b[1] - a[1]);
+            const labels = ordenados.map(item => item[0]);
+            const valores = ordenados.map(item => item[1]);
+            const total = valores.reduce((a, b) => a + b, 0);
 
-                const ordenados = Object.entries(tipos).sort((a, b) => b[1] - a[1]);
-                const labels = ordenados.map(item => item[0]);
-                const valores = ordenados.map(item => item[1]);
-                const total = valores.reduce((a, b) => a + b, 0);
+            let acumulado = 0;
+            const acumulados = valores.map(valor => {
+                acumulado += valor;
+                return (acumulado / total) * 100;
+            });
 
-                let acumulado = 0;
-                const acumulados = valores.map(valor => {
-                    acumulado += valor;
-                    return (acumulado / total) * 100;
-                });
+            const canvasId = 'chart-pareto';
+            let canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                canvas = document.createElement('canvas');
+                canvas.id = canvasId;
+                container.innerHTML = '';
+                container.appendChild(canvas);
+            }
 
-                const canvasId = 'chart-pareto';
-                let canvas = document.getElementById(canvasId);
-                if (!canvas) {
-                    canvas = document.createElement('canvas');
-                    canvas.id = canvasId;
-                    container.innerHTML = '';
-                    container.appendChild(canvas);
-                }
+            const ctx = canvas.getContext('2d');
+            
+            if (this.paretoChart) {
+                this.paretoChart.destroy();
+            }
 
-                const ctx = canvas.getContext('2d');
-                
-                if (this.paretoChart) {
-                    this.paretoChart.destroy();
-                }
-
-                this.paretoChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [
-                            {
-                                label: 'Frecuencia',
-                                data: valores,
-                                backgroundColor: [
-                                    '#c62828', '#d32f2f', '#e53935', '#ef5350', 
-                                    '#e57373', '#ef9a9a', '#ffcdd2'
-                                ],
-                                borderRadius: 6,
-                                borderColor: '#b71c1c',
-                                borderWidth: 1,
-                                order: 1,
-                                yAxisID: 'y',
-                            },
-                            {
-                                label: 'Porcentaje Acumulado',
-                                data: acumulados,
-                                type: 'line',
-                                borderColor: '#1a237e',
-                                backgroundColor: 'rgba(26, 35, 126, 0.1)',
-                                borderWidth: 3,
-                                pointRadius: 6,
-                                pointBackgroundColor: '#1a237e',
-                                pointBorderColor: 'white',
-                                pointBorderWidth: 2,
-                                tension: 0.3,
-                                fill: true,
-                                order: 0,
-                                yAxisID: 'y1',
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false,
+            this.paretoChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Frecuencia',
+                            data: valores,
+                            backgroundColor: [
+                                '#c62828', '#d32f2f', '#e53935', '#ef5350', 
+                                '#e57373', '#ef9a9a', '#ffcdd2'
+                            ],
+                            borderRadius: 6,
+                            borderColor: '#b71c1c',
+                            borderWidth: 1,
+                            order: 1,
+                            yAxisID: 'y',
                         },
-                        plugins: {
+                        {
+                            label: 'Porcentaje Acumulado',
+                            data: acumulados,
+                            type: 'line',
+                            borderColor: '#1a237e',
+                            backgroundColor: 'rgba(26, 35, 126, 0.1)',
+                            borderWidth: 3,
+                            pointRadius: 6,
+                            pointBackgroundColor: '#1a237e',
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                            tension: 0.3,
+                            fill: true,
+                            order: 0,
+                            yAxisID: 'y1',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Total: ${total} observaciones de riesgo`,
+                            font: { size: 14 },
+                            color: '#1a237e'
+                        },
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: { size: 12 },
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                afterBody: function(context) {
+                                    const index = context[0].dataIndex;
+                                    const valor = valores[index];
+                                    const porcentaje = ((valor / total) * 100).toFixed(1);
+                                    const acumulado = acumulados[index].toFixed(1);
+                                    return [
+                                        `Cantidad: ${valor} observaciones`,
+                                        `Porcentaje: ${porcentaje}% del total`,
+                                        `Acumulado: ${acumulado}%`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            position: 'left',
                             title: {
                                 display: true,
-                                text: `Total: ${total} observaciones de riesgo`,
-                                font: { size: 14 },
-                                color: '#1a237e'
+                                text: 'Número de Observaciones',
+                                font: { size: 12 }
                             },
-                            legend: {
-                                position: 'top',
-                                labels: {
-                                    font: { size: 12 },
-                                    padding: 15
+                            ticks: { stepSize: 1 }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Porcentaje Acumulado (%)',
+                                font: { size: 12 }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
                                 }
                             },
-                            tooltip: {
-                                callbacks: {
-                                    afterBody: function(context) {
-                                        const index = context[0].dataIndex;
-                                        const valor = valores[index];
-                                        const porcentaje = ((valor / total) * 100).toFixed(1);
-                                        const acumulado = acumulados[index].toFixed(1);
-                                        return [
-                                            `Cantidad: ${valor} observaciones`,
-                                            `Porcentaje: ${porcentaje}% del total`,
-                                            `Acumulado: ${acumulado}%`
-                                        ];
-                                    }
-                                }
+                            grid: {
+                                drawOnChartArea: false,
                             }
                         },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                position: 'left',
-                                title: {
-                                    display: true,
-                                    text: 'Número de Observaciones',
-                                    font: { size: 12 }
-                                },
-                                ticks: { stepSize: 1 }
-                            },
-                            y1: {
-                                beginAtZero: true,
-                                position: 'right',
-                                max: 100,
-                                title: {
-                                    display: true,
-                                    text: 'Porcentaje Acumulado (%)',
-                                    font: { size: 12 }
-                                },
-                                ticks: {
-                                    callback: function(value) {
-                                        return value + '%';
-                                    }
-                                },
-                                grid: {
-                                    drawOnChartArea: false,
-                                }
-                            },
-                            x: {
-                                ticks: {
-                                    font: { size: 11 }
-                                }
+                        x: {
+                            ticks: {
+                                font: { size: 11 }
                             }
                         }
                     }
-                });
+                }
+            });
 
-                if (resumenContainer && insightContainer) {
-                    let acumulado80 = 0;
-                    let tipos80 = 0;
-                    for (let i = 0; i < acumulados.length; i++) {
-                        if (acumulados[i] <= 80) {
-                            tipos80++;
-                            acumulado80 = acumulados[i];
-                        }
+            if (resumenContainer && insightContainer) {
+                let acumulado80 = 0;
+                let tipos80 = 0;
+                for (let i = 0; i < acumulados.length; i++) {
+                    if (acumulados[i] <= 80) {
+                        tipos80++;
+                        acumulado80 = acumulados[i];
                     }
-                    if (tipos80 === 0 && acumulados.length > 0) {
-                        tipos80 = 1;
-                        acumulado80 = acumulados[0];
-                    }
-
-                    const primerTipo = labels[0];
-                    const primerValor = valores[0];
-                    const porcentajePrimero = ((primerValor / total) * 100).toFixed(1);
-
-                    insightContainer.innerHTML = `
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
-                            <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #c62828;">
-                                <div style="font-weight: 700; font-size: 16px; color: #c62828;">${primerTipo}</div>
-                                <div style="font-size: 13px; color: #37474f;">Es el tipo más frecuente con <strong>${primerValor}</strong> observaciones (${porcentajePrimero}%)</div>
-                            </div>
-                            <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #1a237e;">
-                                <div style="font-weight: 700; font-size: 16px; color: #1a237e;">${tipos80} tipos</div>
-                                <div style="font-size: 13px; color: #37474f;">Representan el <strong>${acumulado80.toFixed(1)}%</strong> del total (${total} observaciones)</div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 10px; font-size: 13px; color: #546e7a; background: white; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                            💡 <strong>Recomendación:</strong> Enfoca las acciones correctivas en el <strong>${tipos80}</strong> tipo(s) que representan el 80% de las observaciones para maximizar el impacto.
-                        </div>
-                    `;
-                    resumenContainer.style.display = 'block';
+                }
+                if (tipos80 === 0 && acumulados.length > 0) {
+                    tipos80 = 1;
+                    acumulado80 = acumulados[0];
                 }
 
-                console.log('✅ Diagrama de Pareto generado correctamente');
-            })
-            .catch(error => {
-                console.error('Error generando diagrama de Pareto:', error);
-                container.innerHTML = `<div class="heatmap-empty"><div style="font-size:48px;margin-bottom:15px;">❌</div><h3>Error al cargar datos</h3><p>${error.message}</p></div>`;
-            });
+                const primerTipo = labels[0];
+                const primerValor = valores[0];
+                const porcentajePrimero = ((primerValor / total) * 100).toFixed(1);
+
+                insightContainer.innerHTML = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                        <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #c62828;">
+                            <div style="font-weight: 700; font-size: 16px; color: #c62828;">${primerTipo}</div>
+                            <div style="font-size: 13px; color: #37474f;">Es el tipo más frecuente con <strong>${primerValor}</strong> observaciones (${porcentajePrimero}%)</div>
+                        </div>
+                        <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #1a237e;">
+                            <div style="font-weight: 700; font-size: 16px; color: #1a237e;">${tipos80} tipos</div>
+                            <div style="font-size: 13px; color: #37474f;">Representan el <strong>${acumulado80.toFixed(1)}%</strong> del total (${total} observaciones)</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 13px; color: #546e7a; background: white; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                        💡 <strong>Recomendación:</strong> Enfoca las acciones correctivas en el <strong>${tipos80}</strong> tipo(s) que representan el 80% de las observaciones para maximizar el impacto.
+                    </div>
+                `;
+                resumenContainer.style.display = 'block';
+            }
+
+            console.log('✅ Diagrama de Pareto generado correctamente');
+        } catch (error) {
+            console.error('Error generando diagrama de Pareto:', error);
+            container.innerHTML = `<div class="heatmap-empty"><div style="font-size:48px;margin-bottom:15px;">❌</div><h3>Error al cargar datos</h3><p>${error.message}</p></div>`;
+        }
     }
 
     // ============================================================
     // MAPA DE CALOR
     // ============================================================
-    
+
     generarHeatmap() {
         console.log('🔄 Generando mapa de calor de observaciones de riesgo...');
-        
-        supabaseClient
-            .from('observaciones')
-            .select('*')
-            .then(({ data: observaciones, error }) => {
-                if (error) throw error;
 
-                const container = document.getElementById('heatmap-content');
-                if (!container) { console.log('❌ Contenedor no encontrado'); return; }
-
-                const observacionesRiesgo = (observaciones || []).filter(o => o.tipo !== 'buena-practica');
-
-                if (!observacionesRiesgo || observacionesRiesgo.length === 0) {
-                    container.innerHTML = `<div class="heatmap-empty"><div style="font-size:48px;margin-bottom:15px;">📭</div><h3>No hay datos disponibles</h3><p>Registra observaciones de riesgo para comenzar a ver estadísticas</p></div>`;
-                    return;
-                }
-
-                const areasUnicas = [...new Set(observacionesRiesgo.map(o => this.getAreaLabel(o.area)))];
-                areasUnicas.sort();
-                const tiposUnicos = [...new Set(observacionesRiesgo.map(o => this.getTipoLabel(o.tipo)))];
-                tiposUnicos.sort();
-
-                if (areasUnicas.length === 0 || tiposUnicos.length === 0) {
-                    container.innerHTML = `<div class="heatmap-empty"><div style="font-size:48px;margin-bottom:15px;">📭</div><h3>No hay datos para mostrar</h3><p>Las observaciones no tienen áreas o tipos definidos</p></div>`;
-                    return;
-                }
-
-                const matriz = {};
-                areasUnicas.forEach(area => {
-                    matriz[area] = {};
-                    tiposUnicos.forEach(tipo => {
-                        matriz[area][tipo] = 0;
-                    });
-                });
-
-                const matrizCriticos = {};
-                areasUnicas.forEach(area => {
-                    matrizCriticos[area] = {};
-                    tiposUnicos.forEach(tipo => {
-                        matrizCriticos[area][tipo] = 0;
-                    });
-                });
-
-                observacionesRiesgo.forEach(obs => {
-                    const area = this.getAreaLabel(obs.area);
-                    const tipo = this.getTipoLabel(obs.tipo);
-                    if (matriz[area] && matriz[area][tipo] !== undefined) {
-                        matriz[area][tipo] += 1;
-                        if (obs.nivel_riesgo === 'critico') {
-                            matrizCriticos[area][tipo] += 1;
-                        }
-                    }
-                });
-
-                let maxValor = 0;
-                areasUnicas.forEach(area => {
-                    tiposUnicos.forEach(tipo => {
-                        if (matriz[area][tipo] > maxValor) maxValor = matriz[area][tipo];
-                    });
-                });
-
-                let html = `<div class="heatmap-table-wrapper"><table class="heatmap-table"><thead><tr><th>Área / Tipo</th>`;
-                tiposUnicos.forEach(tipo => { html += `<th>${tipo}</th>`; });
-                html += `</tr></thead><tbody>`;
-
-                areasUnicas.forEach(area => {
-                    html += `<tr><td>${area}</td>`;
-                    tiposUnicos.forEach(tipo => {
-                        const valor = matriz[area][tipo];
-                        const porcentaje = maxValor > 0 ? (valor / maxValor) * 100 : 0;
-                        const criticos = matrizCriticos[area][tipo];
-
-                        let color = '';
-                        if (porcentaje === 0) color = '#f5f5f5';
-                        else if (porcentaje > 70) color = '#d32f2f';
-                        else if (porcentaje > 40) {
-                            const rojo = Math.round(180 + (porcentaje / 100) * 75);
-                            const verde = Math.round(255 - (porcentaje / 100) * 200);
-                            color = `rgb(${rojo}, ${verde}, 0)`;
-                        } else {
-                            const verde = Math.round(150 + (porcentaje / 100) * 100);
-                            color = `rgb(0, ${verde}, 0)`;
-                        }
-
-                        const textColor = porcentaje > 50 ? 'white' : '#1a237e';
-                        let contenido = `${valor}`;
-                        let claseCritico = '';
-                        if (criticos > 0) {
-                            contenido = `${valor}<span class="critico-text">🚨 crítico (${criticos})</span>`;
-                            claseCritico = 'has-critico';
-                        }
-
-                        html += `<td style="background-color:${color};color:${textColor};border:${criticos > 0 ? '3px solid #0d47a1' : '1px solid #e0e0e0'};" class="${claseCritico}">${contenido}</td>`;
-                    });
-                    html += `</tr>`;
-                });
-
-                html += `</tbody></table></div>`;
-                html += `<div class="heatmap-legend">
-                    <span style="font-weight:600;color:#37474f;font-size:14px;">Leyenda:</span>
-                    <div class="heatmap-legend-item"><div class="heatmap-legend-color" style="background:#d32f2f;"></div>Alta (>70%)</div>
-                    <div class="heatmap-legend-item"><div class="heatmap-legend-color" style="background:#f57f17;"></div>Media (40-70%)</div>
-                    <div class="heatmap-legend-item"><div class="heatmap-legend-color" style="background:#2e7d32;"></div>Baja (10-40%)</div>
-                    <div class="heatmap-legend-item"><div class="heatmap-legend-color" style="background:#f5f5f5;border:1px solid #ddd;"></div>Sin datos (0%)</div>
-                    <div class="heatmap-legend-item" style="border-left:2px solid #e0e0e0;padding-left:15px;">
-                        <span class="led-indicator"></span>
-                        <span style="font-size:13px;color:#0d47a1;font-weight:600;">Borde LED = Riesgo Crítico</span>
-                    </div>
-                    <span style="margin-left:auto;font-size:13px;color:#78909c;">📊 ${observacionesRiesgo.length} observaciones de riesgo</span>
-                </div>`;
-
-                container.innerHTML = html;
-                console.log('✅ Mapa de calor de observaciones de riesgo generado correctamente');
-            })
-            .catch(error => {
-                console.error('Error generando mapa de calor:', error);
-            });
-    }
-
-    // ============================================================
-    // CERRAR SESIÓN
-    // ============================================================
-    
-    async cerrarSesion() {
-        if (!confirm('¿Estás seguro de que quieres cerrar sesión?')) {
-            return;
-        }
-        
         try {
-            await supabaseClient.auth.signOut();
-            this.usuarioActual = null;
-            this.showToast('✅ Sesión cerrada exitosamente');
-            
-            setTimeout(() => {
-                location.reload();
-            }, 500);
+            const observaciones = this.getLocalObservaciones();
+
+            const container = document.getElementById('heatmap-content');
+            if (!container) { console.log('❌ Contenedor no encontrado'); return; }
+
+            const observacionesRiesgo = (observaciones || []).filter(o => o.tipo !== 'buena-practica');
+
+            if (!observacionesRiesgo || observacionesRiesgo.length === 0) {
+                container.innerHTML = `<div class="heatmap-empty"><div style="font-size:48px;margin-bottom:15px;">📭</div><h3>No hay datos disponibles</h3><p>Registra observaciones de riesgo para comenzar a ver estadísticas</p></div>`;
+                return;
+            }
+
+            const areasUnicas = [...new Set(observacionesRiesgo.map(o => this.getAreaLabel(o.area)))];
+            areasUnicas.sort();
+            const tiposUnicos = [...new Set(observacionesRiesgo.map(o => this.getTipoLabel(o.tipo)))];
+            tiposUnicos.sort();
+
+            if (areasUnicas.length === 0 || tiposUnicos.length === 0) {
+                container.innerHTML = `<div class="heatmap-empty"><div style="font-size:48px;margin-bottom:15px;">📭</div><h3>No hay datos para mostrar</h3><p>Las observaciones no tienen áreas o tipos definidos</p></div>`;
+                return;
+            }
+
+            const matriz = {};
+            areasUnicas.forEach(area => {
+                matriz[area] = {};
+                tiposUnicos.forEach(tipo => {
+                    matriz[area][tipo] = 0;
+                });
+            });
+
+            const matrizCriticos = {};
+            areasUnicas.forEach(area => {
+                matrizCriticos[area] = {};
+                tiposUnicos.forEach(tipo => {
+                    matrizCriticos[area][tipo] = 0;
+                });
+            });
+
+            observacionesRiesgo.forEach(obs => {
+                const area = this.getAreaLabel(obs.area);
+                const tipo = this.getTipoLabel(obs.tipo);
+                if (matriz[area] && matriz[area][tipo] !== undefined) {
+                    matriz[area][tipo] += 1;
+                    if (obs.nivel_riesgo === 'critico') {
+                        matrizCriticos[area][tipo] += 1;
+                    }
+                }
+            });
+
+            let maxValor = 0;
+            areasUnicas.forEach(area => {
+                tiposUnicos.forEach(tipo => {
+                    if (matriz[area][tipo] > maxValor) maxValor = matriz[area][tipo];
+                });
+            });
+
+            let html = `<div class="heatmap-table-wrapper"><table class="heatmap-table"><thead><tr><th>Área / Tipo</th>`;
+            tiposUnicos.forEach(tipo => { html += `<th>${tipo}</th>`; });
+            html += `</tr></thead><tbody>`;
+
+            areasUnicas.forEach(area => {
+                html += `<tr><td>${area}</td>`;
+                tiposUnicos.forEach(tipo => {
+                    const valor = matriz[area][tipo];
+                    const porcentaje = maxValor > 0 ? (valor / maxValor) * 100 : 0;
+                    const criticos = matrizCriticos[area][tipo];
+
+                    let color = '';
+                    if (porcentaje === 0) color = '#f5f5f5';
+                    else if (porcentaje > 70) color = '#d32f2f';
+                    else if (porcentaje > 40) {
+                        const rojo = Math.round(180 + (porcentaje / 100) * 75);
+                        const verde = Math.round(255 - (porcentaje / 100) * 200);
+                        color = `rgb(${rojo}, ${verde}, 0)`;
+                    } else {
+                        const verde = Math.round(150 + (porcentaje / 100) * 100);
+                        color = `rgb(0, ${verde}, 0)`;
+                    }
+
+                    const textColor = porcentaje > 50 ? 'white' : '#1a237e';
+                    let contenido = `${valor}`;
+                    let claseCritico = '';
+                    if (criticos > 0) {
+                        contenido = `${valor}<span class="critico-text">🚨 crítico (${criticos})</span>`;
+                        claseCritico = 'has-critico';
+                    }
+
+                    html += `<td style="background-color:${color};color:${textColor};border:${criticos > 0 ? '3px solid #0d47a1' : '1px solid #e0e0e0'};" class="${claseCritico}">${contenido}</td>`;
+                });
+                html += `</tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+            html += `<div class="heatmap-legend">
+                <span style="font-weight:600;color:#37474f;font-size:14px;">Leyenda:</span>
+                <div class="heatmap-legend-item"><div class="heatmap-legend-color" style="background:#d32f2f;"></div>Alta (>70%)</div>
+                <div class="heatmap-legend-item"><div class="heatmap-legend-color" style="background:#f57f17;"></div>Media (40-70%)</div>
+                <div class="heatmap-legend-item"><div class="heatmap-legend-color" style="background:#2e7d32;"></div>Baja (10-40%)</div>
+                <div class="heatmap-legend-item"><div class="heatmap-legend-color" style="background:#f5f5f5;border:1px solid #ddd;"></div>Sin datos (0%)</div>
+                <div class="heatmap-legend-item" style="border-left:2px solid #e0e0e0;padding-left:15px;">
+                    <span class="led-indicator"></span>
+                    <span style="font-size:13px;color:#0d47a1;font-weight:600;">Borde LED = Riesgo Crítico</span>
+                </div>
+                <span style="margin-left:auto;font-size:13px;color:#78909c;">📊 ${observacionesRiesgo.length} observaciones de riesgo</span>
+            </div>`;
+
+            container.innerHTML = html;
+            console.log('✅ Mapa de calor de observaciones de riesgo generado correctamente');
         } catch (error) {
-            console.error('Error cerrando sesión:', error);
-            this.showToast('❌ Error al cerrar sesión: ' + error.message);
+            console.error('Error generando mapa de calor:', error);
         }
     }
 }
