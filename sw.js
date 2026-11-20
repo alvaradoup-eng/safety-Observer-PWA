@@ -15,7 +15,7 @@ const ASSETS_TO_CACHE = [
     'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js'
 ];
 
-self.addEventListener('ftech', (event) => {
+self.addEventListener('install', (event) => {
     console.log('Service Worker: Instalando versión', CACHE_NAME);
     event.waitUntil(
         caches.open(CACHE_NAME)
