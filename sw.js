@@ -1,18 +1,15 @@
-const CACHE_NAME = 'safety-observer-v15'; // ← Versión actualizada para forzar refresco
+// Service Worker - Safety Observer (versión corregida)
+const CACHE_NAME = 'safety-observer-v16'; // ← versión nueva para forzar actualización
+const BASE = '/safety-Observer-PWA/'; // ← OJO: GitHub Pages distingue mayúsculas
 const ASSETS_TO_CACHE = [
-    '/safety-observer-pwa/',
-    '/safety-observer-pwa/index.html',
-    '/safety-observer-pwa/css/styles.css',
-    '/safety-observer-pwa/js/app.js',
-    '/safety-observer-pwa/js/auth.js',
-    '/safety-observer-pwa/js/config.js',
-    '/safety-observer-pwa/js/db.js',
-    '/safety-observer-pwa/manifest.json',
-    'https://cdn.jsdelivr.net/npm/chart.js',
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-    'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js'
+    BASE,
+    BASE + 'index.html',
+    BASE + 'css/styles.css',
+    BASE + 'js/app.js',
+    BASE + 'js/auth.js',
+    BASE + 'js/config.js',
+    BASE + 'js/db.js',
+    BASE + 'manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -36,10 +33,12 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET') return;
+    // No guardar en caché las respuestas de la API (Supabase): deben ser siempre frescas
+    const esApi = event.request.url.includes('supabase.co');
     event.respondWith(
         fetch(event.request)
             .then(response => {
-                if (response && response.status === 200) {
+                if (!esApi && response && response.status === 200) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
                 }
@@ -48,7 +47,7 @@ self.addEventListener('fetch', event => {
             .catch(() =>
                 caches.match(event.request).then(cached => {
                     if (cached) return cached;
-                    if (event.request.mode === 'navigate') return caches.match('/safety-observer-pwa/index.html');
+                    if (event.request.mode === 'navigate') return caches.match(BASE + 'index.html');
                     return new Response('Sin conexión', { status: 503 });
                 })
             )
